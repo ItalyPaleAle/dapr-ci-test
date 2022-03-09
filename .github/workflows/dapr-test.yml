@@ -35,7 +35,7 @@ jobs:
     env:
       TARGET_OS: ${{ matrix.target_os }}
       # Space-separated of supported Azure regions: one will be picked randomly for each cluster
-      AZURE_REGIONS: "eastus2 westus2 westus3 westcentralus"
+      AZURE_REGIONS: "eastus2 westus2"
     strategy:
       fail-fast: true
       matrix:
