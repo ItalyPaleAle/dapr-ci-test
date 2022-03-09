@@ -63,6 +63,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-07-01' = {
           name: 'agentpool'
           osDiskSizeGB: osDiskSizeGB
           enableAutoScaling: true
+          count: 2
           minCount: 2
           maxCount: 3
           vmSize: 'Standard_DS2_v2'
@@ -84,6 +85,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-07-01' = {
           name: 'winpol'
           osDiskSizeGB: osDiskSizeGB
           enableAutoScaling: true
+          count: 1
           minCount: 1
           maxCount: 3
           vmSize: 'Standard_DS2_v2'

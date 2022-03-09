@@ -73,7 +73,7 @@ jobs:
       - name: Build test prefix
         if: env.CHECKOUT_REPO != ''
         run: |
-          BASE_STR="CI|${{ env.GITHUB_SHA }}|${{ env.GITHUB_SERVER_URL }}|${{ env.GITHUB_REPOSITORY }}|${{ env.GITHUB_RUN_ID }}|${{ env.GITHUB_RUN_ATTEMPT }}"
+          BASE_STR="CI|${GITHUB_SHA}|${GITHUB_SERVER_URL}|${GITHUB_REPOSITORY}|${GITHUB_RUN_ID}|${GITHUB_RUN_ATTEMPT}"
           SUFFIX=$(echo $BASE_STR | sha1sum | head -c 10)
           TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
@@ -160,7 +160,7 @@ jobs:
       - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
-          BASE_STR="CI|${{ env.GITHUB_SHA }}|${{ env.GITHUB_SERVER_URL }}|${{ env.GITHUB_REPOSITORY }}|${{ env.GITHUB_RUN_ID }}|${{ env.GITHUB_RUN_ATTEMPT }}"
+          BASE_STR="CI|${GITHUB_SHA}|${GITHUB_SERVER_URL}|${GITHUB_REPOSITORY}|${GITHUB_RUN_ID}|${GITHUB_RUN_ATTEMPT}"
           SUFFIX=$(echo $BASE_STR | sha1sum | head -c 10)
           TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
@@ -281,7 +281,7 @@ jobs:
       - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
-          BASE_STR="CI|${{ env.GITHUB_SHA }}|${{ env.GITHUB_SERVER_URL }}|${{ env.GITHUB_REPOSITORY }}|${{ env.GITHUB_RUN_ID }}|${{ env.GITHUB_RUN_ATTEMPT }}"
+          BASE_STR="CI|${GITHUB_SHA}|${GITHUB_SERVER_URL}|${GITHUB_REPOSITORY}|${GITHUB_RUN_ID}|${GITHUB_RUN_ATTEMPT}"
           SUFFIX=$(echo $BASE_STR | sha1sum | head -c 10)
           TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
