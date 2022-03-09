@@ -11,11 +11,18 @@
 # limitations under the License.
 #
 
+# Required secrets:
+# - AZURE_CREDENTIALS: JSON object containing the Azure service principal credentials. Example: https://github.com/Azure/login#configure-a-service-principal-with-a-secret
+
 name: dapr-test
 
 on:
+  # Run every 2 hours
   schedule:
     - cron: '0 */2 * * *'
+  # Manual trigger
+  workflow_dispatch:
+  # Dispatch on external events
   repository_dispatch:
     types: [e2e-test]
 
@@ -24,21 +31,21 @@ jobs:
     name: end-to-end ${{ matrix.target_os }} tests
     runs-on: ${{ matrix.os }}
     env:
-      GOVER: 1.17
-      KUBECTLVER: v1.19.3
+      GOVER: "1.17"
+      KUBECTLVER: "v1.22.6"
       GOOS: ${{ matrix.target_os }}
       GOARCH: ${{ matrix.target_arch }}
       GOPROXY: https://proxy.golang.org
-      DAPR_REGISTRY: ${{ secrets.DOCKER_TEST_REGISTRY }}
-      DAPR_TEST_REGISTRY: ${{ secrets.DOCKER_TEST_REGISTRY }}
-      TEST_CLOUD_ENV: azure
-      HELMVER: v3.7.2
-      DAPR_NAMESPACE: dapr-tests
+      # TODO: Re-enable later
+      #TEST_CLOUD_ENV: "azure"
+      TEST_CLOUD_ENV: ""
+      HELMVER: "v3.7.2"
+      DAPR_NAMESPACE: "dapr-tests"
       MAX_TEST_TIMEOUT: 5400
       TARGET_OS: ${{ matrix.target_os }}
       TARGET_ARCH: ${{ matrix.target_arch }}
       HA_MODE: true
-      TEST_OUTPUT_FILE_PREFIX: test_report
+      TEST_OUTPUT_FILE_PREFIX: "test_report"
     strategy:
       fail-fast: false
       matrix:
@@ -95,70 +102,70 @@ jobs:
           version: ${{ env.HELMVER }}
       - name: Login Azure
         if: env.CHECKOUT_REPO != ''
-        run: |
-          az login --service-principal -u ${{ secrets.AZURE_LOGIN_USER }} -p ${{ secrets.AZURE_LOGIN_PASS }} --tenant ${{ secrets.AZURE_TENANT }} --output none
-      - name: Find the test cluster
-        if: env.CHECKOUT_REPO != ''
-        run: ./tests/test-infra/find_cluster.sh ./tests/test-infra/e2e-list.${{ matrix.target_os }}.txt
-        shell: bash
-      - name: Add the test status comment to PR
-        if: github.event_name == 'repository_dispatch' && env.CHECKOUT_REPO != ''
-        env:
-          JOB_CONTEXT: ${{ toJson(job) }}
-        uses: actions/github-script@0.3.0
+        uses: azure/login@v1
         with:
-          github-token: ${{secrets.DAPR_BOT_TOKEN}}
-          script: |
-            const payload = context.payload;
-            const testPayload = payload.client_payload;
-            const testCluster = process.env.TEST_CLUSTER;
-            const targetOs = process.env.TARGET_OS;
-
-            if (!testCluster) {
-              message = "All test clusters are occupied by the other tests. Please try to test later.";
-            } else {
-              const checkLink = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-              message = `Found the available test cluster - ${testCluster} for ${targetOs}. Please check the [build status](${checkLink}).`;
-            }
-
-            await github.issues.createComment({
-              owner: testPayload.issue.owner,
-              repo: testPayload.issue.repo,
-              issue_number: testPayload.issue.number,
-              body: message
-            });
-      - name: docker login
-        if: env.TEST_CLUSTER != ''
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          enable-AzPSSession: true # Enable support for PowerShell
+      - name: Generate random name for test
+        if: env.CHECKOUT_REPO != ''
         run: |
-          docker login -u ${{ secrets.DOCKER_REGISTRY_ID }} -p ${{ secrets.DOCKER_REGISTRY_PASS }}
+          RAND_SUFFIX=$(echo $RANDOM | sha1sum | head -c 10)
+          echo "TEST_PREFIX=dapre2e${RAND_SUFFIX}" >> $GITHUB_ENV
+        shell: bash
+      - name: Deploy the test cluster
+        if: env.TEST_PREFIX != ''
+        run: |
+          RESOURCE_GROUP="Dapr-E2E-${{ env.TEST_PREFIX }}"
+          az group create --name "$RESOURCE_GROUP" --location eastus2
+          ENABLE_WINDOWS="false"
+          if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
+            ENABLE_WINDOWS="true"
+          fi
+          az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file /tests/test-infra/azure-aks.bicep \
+            --parameters namePrefix="${{ env.TEST_PREFIX }}" location='eastus2' enableWindows=${ENABLE_WINDOWS}
+          echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
+        shell: bash
+      - name: Login to Azure Container Registry
+        if: env.TEST_PREFIX != ''
+        run: |
+          az acr login --name ${{ env.TEST_PREFIX }}acr
+          echo "DOCKER_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
+      - name: Connect to Kubernetes
+        if: env.TEST_PREFIX != ''
+        run: |
+          az aks get-credentials -n "${{ env.TEST_PREFIX }}-aks" -g "${{ env.TEST_RESOURCE_GROUP }}"
+          kubectl create namespace ${{ env.DAPR_NAMESPACE }}
+        shell: bash
       - name: Setup environment variables for ${{ env.TEST_CLOUD_ENV }}
-        if: env.TEST_CLUSTER != '' && env.TEST_CLOUD_ENV != ''
+        if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
         run: ./tests/test-infra/setup_${{ env.TEST_CLOUD_ENV }}_env.ps1
         shell: pwsh
       - name: Start setup for cloud resources
-        if: env.TEST_CLUSTER != '' && env.TEST_CLOUD_ENV != ''
+        if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
         run: ./tests/test-infra/start_${{ env.TEST_CLOUD_ENV }}_setup.ps1
         shell: pwsh
       - name: Build dapr and its docker image and push them to test registry
-        if: env.TEST_CLUSTER != ''
+        if: env.TEST_PREFIX != ''
         run: |
           make build
           make docker-push
-      - name: Preparing ${{ env.TEST_CLUSTER }} cluster for test
-        if: env.TEST_CLUSTER != ''
+      - name: Preparing ${{ env.TEST_PREFIX }} cluster for test
+        if: env.TEST_PREFIX != ''
         run: |
           make setup-helm-init
           make setup-test-env-redis
           make setup-test-env-kafka
           kubectl get pods -n ${{ env.DAPR_NAMESPACE }}
-      - name: Deploy dapr to ${{ env.TEST_CLUSTER }} cluster
-        if: env.TEST_CLUSTER != ''
+      - name: Deploy dapr to ${{ env.TEST_PREFIX }} cluster
+        if: env.TEST_PREFIX != ''
         run: make docker-deploy-k8s
       - name: Deploy test components
-        if: env.TEST_CLUSTER != ''
+        if: env.TEST_PREFIX != ''
         run: make setup-test-components
       - name: Show dapr configurations
-        if: env.TEST_CLUSTER != ''
+        if: env.TEST_PREFIX != ''
         run: kubectl get configurations daprsystem -n ${{ env.DAPR_NAMESPACE }} -o yaml
       - name: Set windows TCP timeouts
         if: matrix.target_os == 'windows'
@@ -167,25 +174,25 @@ jobs:
           netsh interface tcp set global maxSynRetransmissions=8
           netsh interface tcp show global
       - name: Build e2e test apps
-        if: env.TEST_CLUSTER != ''
+        if: env.TEST_PREFIX != ''
         run: make build-e2e-app-all
       - name: Push e2e app images to test dockerhub
-        if: env.TEST_CLUSTER != ''
+        if: env.TEST_PREFIX != ''
         run: |
           make push-e2e-app-all
       - name: Verify cloud resources
-        if: env.TEST_CLUSTER != '' && env.TEST_CLOUD_ENV != ''
+        if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
         run: ./tests/test-infra/verify_${{ env.TEST_CLOUD_ENV }}_setup.ps1
         shell: pwsh
       - name: Run E2E tests
-        if: env.TEST_CLUSTER != ''
+        if: env.TEST_PREFIX != ''
         run: make test-e2e-all
       - name: Save control plane K8s resources
-        if: always() && env.TEST_CLUSTER != ''
+        if: always() && env.TEST_PREFIX != ''
         run: |
           make save-dapr-control-plane-k8s-resources || true
       - name: Save control plane logs
-        if: always() && env.TEST_CLUSTER != ''
+        if: always() && env.TEST_PREFIX != ''
         run: |
           make save-dapr-control-plane-k8s-logs
       - name: Upload container logs
@@ -202,7 +209,7 @@ jobs:
           name: ${{ matrix.target_os }}_${{ matrix.target_arch }}_e2e.json
           path: ${{ env.TEST_OUTPUT_FILE_PREFIX }}_e2e.*
       - name: Add test result comment to PR
-        if: always() && github.event_name == 'repository_dispatch' && env.TEST_CLUSTER != ''
+        if: always() && github.event_name == 'repository_dispatch' && env.TEST_PREFIX != ''
         env:
           JOB_CONTEXT: ${{ toJson(job) }}
         uses: actions/github-script@0.3.0
@@ -236,10 +243,11 @@ jobs:
                 body: message
               });
             }
-      - name: Clean up ${{ env.TEST_CLUSTER }} cluster
-        if: always() && env.TEST_CLUSTER != ''
+      - name: Clean up ${{ env.TEST_PREFIX }} cluster
+        if: always() && env.TEST_PREFIX != ''
         run: make clean-test-env
-      - name: Tears down cloud resources
-        if: always() && env.TEST_CLUSTER != '' && env.TEST_CLOUD_ENV != ''
-        run: ./tests/test-infra/teardown_${{ env.TEST_CLOUD_ENV }}.ps1
-        shell: pwsh
+      # TODO
+      #- name: Tears down cloud resources
+      #  if: always() && env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
+      #  run: ./tests/test-infra/teardown_${{ env.TEST_CLOUD_ENV }}.ps1
+      #  shell: pwsh
