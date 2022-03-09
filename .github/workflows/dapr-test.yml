@@ -88,6 +88,7 @@ jobs:
         if: env.TEST_PREFIX != ''
         run: |
           RESOURCE_GROUP="Dapr-E2E-${{ env.TEST_PREFIX }}"
+          echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
           az group create --name "$RESOURCE_GROUP" --location eastus2
           ENABLE_WINDOWS="false"
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
@@ -97,7 +98,6 @@ jobs:
             --resource-group "$RESOURCE_GROUP" \
             --template-file ./tests/test-infra/azure-aks.bicep \
             --parameters namePrefix="${{ env.TEST_PREFIX }}" location='eastus2' enableWindows=${ENABLE_WINDOWS}
-          echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
         shell: bash
 
   build:
@@ -295,6 +295,7 @@ jobs:
           echo "TEST_CLUSTER=${TEST_PREFIX}-aks" >> $GITHUB_ENV
           echo "DAPR_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
           echo "DAPR_TEST_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
+          echo "TEST_RESOURCE_GROUP=Dapr-E2E-${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
       - name: Connect to Kubernetes
         if: env.TEST_PREFIX != ''
