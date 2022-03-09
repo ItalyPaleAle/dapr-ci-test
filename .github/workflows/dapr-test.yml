@@ -131,7 +131,7 @@ jobs:
         if: env.TEST_PREFIX != ''
         run: |
           az acr login --name ${{ env.TEST_PREFIX }}acr
-          echo "DOCKER_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
+          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
       - name: Connect to Kubernetes
         if: env.TEST_PREFIX != ''
         run: |
@@ -243,9 +243,10 @@ jobs:
                 body: message
               });
             }
-      - name: Clean up ${{ env.TEST_PREFIX }} cluster
+      - name: Tear down Azure resources
         if: always() && env.TEST_PREFIX != ''
-        run: make clean-test-env
+        run: az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}"
+        shell: bash
       # TODO
       #- name: Tears down cloud resources
       #  if: always() && env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
