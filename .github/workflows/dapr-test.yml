@@ -75,11 +75,14 @@ jobs:
         run: |
           BASE_STR="CI|${{ env.GITHUB_SHA }}|${{ env.GITHUB_SERVER_URL }}|${{ env.GITHUB_REPOSITORY }}|${{ env.GITHUB_RUN_ID }}|${{ env.GITHUB_RUN_ATTEMPT }}"
           SUFFIX=$(echo $BASE_STR | sha1sum | head -c 10)
+          TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
-            echo "TEST_PREFIX=dapre2e${SUFFIX}w" >> $GITHUB_ENV
+            TEST_PREFIX="dapre2e${SUFFIX}w"
           else
-            echo "TEST_PREFIX=dapre2e${SUFFIX}l" >> $GITHUB_ENV
+            TEST_PREFIX="dapre2e${SUFFIX}l"
           fi
+          echo "Test prefix is ${TEST_PREFIX}"
+          echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
       - name: Deploy the test cluster
         if: env.TEST_PREFIX != ''
@@ -157,14 +160,15 @@ jobs:
       - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
-          TEST_PREFIX=""
           BASE_STR="CI|${{ env.GITHUB_SHA }}|${{ env.GITHUB_SERVER_URL }}|${{ env.GITHUB_REPOSITORY }}|${{ env.GITHUB_RUN_ID }}|${{ env.GITHUB_RUN_ATTEMPT }}"
           SUFFIX=$(echo $BASE_STR | sha1sum | head -c 10)
+          TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
             TEST_PREFIX="dapre2e${SUFFIX}w"
           else
             TEST_PREFIX="dapre2e${SUFFIX}l"
           fi
+          echo "Test prefix is ${TEST_PREFIX}"
           echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
           echo "DAPR_REGISTRY=${TEST_PREFIX}acr.azurecr.io" >> $GITHUB_ENV
           echo "TEST_CLUSTER=${TEST_PREFIX}-aks" >> $GITHUB_ENV
@@ -277,14 +281,15 @@ jobs:
       - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
-          TEST_PREFIX=""
           BASE_STR="CI|${{ env.GITHUB_SHA }}|${{ env.GITHUB_SERVER_URL }}|${{ env.GITHUB_REPOSITORY }}|${{ env.GITHUB_RUN_ID }}|${{ env.GITHUB_RUN_ATTEMPT }}"
           SUFFIX=$(echo $BASE_STR | sha1sum | head -c 10)
+          TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
             TEST_PREFIX="dapre2e${SUFFIX}w"
           else
             TEST_PREFIX="dapre2e${SUFFIX}l"
           fi
+          echo "Test prefix is ${TEST_PREFIX}"
           echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
           echo "DAPR_REGISTRY=${TEST_PREFIX}acr.azurecr.io" >> $GITHUB_ENV
           echo "TEST_CLUSTER=${TEST_PREFIX}-aks" >> $GITHUB_ENV
