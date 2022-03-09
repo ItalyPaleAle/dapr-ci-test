@@ -123,7 +123,7 @@ jobs:
           fi
           az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
-            --template-file /tests/test-infra/azure-aks.bicep \
+            --template-file ./tests/test-infra/azure-aks.bicep \
             --parameters namePrefix="${{ env.TEST_PREFIX }}" location='eastus2' enableWindows=${ENABLE_WINDOWS}
           echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
         shell: bash
@@ -151,14 +151,14 @@ jobs:
         run: |
           make build
           make docker-push
-      - name: Preparing ${{ env.TEST_PREFIX }} cluster for test
+      - name: Preparing AKS cluster for test
         if: env.TEST_PREFIX != ''
         run: |
           make setup-helm-init
           make setup-test-env-redis
           make setup-test-env-kafka
           kubectl get pods -n ${{ env.DAPR_NAMESPACE }}
-      - name: Deploy dapr to ${{ env.TEST_PREFIX }} cluster
+      - name: Deploy dapr to AKS cluster
         if: env.TEST_PREFIX != ''
         run: make docker-deploy-k8s
       - name: Deploy test components
