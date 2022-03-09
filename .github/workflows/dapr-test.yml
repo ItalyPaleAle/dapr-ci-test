@@ -171,15 +171,17 @@ jobs:
       - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
+          TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
-            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}w" >> $GITHUB_ENV
+            TEST_PREFIX="dapre2e${{needs.genprefix.outputs.prefix}}w"
           else
-            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
+            TEST_PREFIX="dapre2e${{needs.genprefix.outputs.prefix}}l"
           fi
-          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
-          echo "TEST_CLUSTER=${{ env.TEST_PREFIX }}-aks" >> $GITHUB_ENV
-          echo "DAPR_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
-          echo "DAPR_TEST_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
+          echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
+          echo "DAPR_REGISTRY=${TEST_PREFIX}acr.azurecr.io" >> $GITHUB_ENV
+          echo "TEST_CLUSTER=${TEST_PREFIX}-aks" >> $GITHUB_ENV
+          echo "DAPR_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
+          echo "DAPR_TEST_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
       - name: Build dapr and its docker image
         if: env.TEST_PREFIX != ''
@@ -288,15 +290,17 @@ jobs:
       - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
+          TEST_PREFIX=""
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
-            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}w" >> $GITHUB_ENV
+            TEST_PREFIX="dapre2e${{needs.genprefix.outputs.prefix}}w"
           else
-            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
+            TEST_PREFIX="dapre2e${{needs.genprefix.outputs.prefix}}l"
           fi
-          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
-          echo "TEST_CLUSTER=${{ env.TEST_PREFIX }}-aks" >> $GITHUB_ENV
-          echo "DAPR_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
-          echo "DAPR_TEST_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
+          echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
+          echo "DAPR_REGISTRY=${TEST_PREFIX}acr.azurecr.io" >> $GITHUB_ENV
+          echo "TEST_CLUSTER=${TEST_PREFIX}-aks" >> $GITHUB_ENV
+          echo "DAPR_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
+          echo "DAPR_TEST_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
       - name: Connect to Kubernetes
         if: env.TEST_PREFIX != ''
