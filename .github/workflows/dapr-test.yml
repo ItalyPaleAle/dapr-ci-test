@@ -92,12 +92,14 @@ jobs:
           # Resource group name
           RESOURCE_GROUP="Dapr-E2E-${{ env.TEST_PREFIX }}"
           echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
+          echo "Resource group name: ${RESOURCE_GROUP}"
 
           # Select a random Azure region
           REGIONS=(${{ env.AZURE_REGIONS }})
           REGIONS_SIZE=${#REGIONS[@]}
           REGIONS_IDX=$(($RANDOM % $REGIONS_SIZE))
           REGION=${REGIONS[$REGIONS_IDX]}
+          echo "Deploying to Azure region: ${REGION}"
 
           # Create the resource group
           az group create --name "${RESOURCE_GROUP}" --location ${REGION}
@@ -108,7 +110,7 @@ jobs:
             ENABLE_WINDOWS="true"
           fi
           az deployment group create \
-            --resource-group "$RESOURC{E_GROUP" \
+            --resource-group "${RESOURCE_GROUP}" \
             --template-file ./tests/test-infra/azure-aks.bicep \
             --parameters namePrefix="${{ env.TEST_PREFIX }}" location=${REGION} enableWindows=${ENABLE_WINDOWS}
         shell: bash
