@@ -38,6 +38,7 @@ jobs:
         id: prefix
         run: |
           RAND_SUFFIX=$(echo $RANDOM | sha1sum | head -c 9)
+          echo "Prefix for this test run is dapre2e${RAND_SUFFIX}"
           echo "::set-output name=prefix::dapre2e${RAND_SUFFIX}"
 
   deploy-infrastructure:
@@ -176,20 +177,26 @@ jobs:
             echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
           fi
         shell: bash
+      - name: Build dapr and its docker image
+        if: env.TEST_PREFIX != ''
+        run: |
+          make build
+          make docker-build
+      - name: Build e2e test apps
+        if: env.TEST_PREFIX != ''
+        run: |
+          make build-e2e-app-all
+      # TODO: FIX RACE CONDITION WITH THE DEPLOY-INFRASTRUCTURE JOB
+      # This needs to have a loop that waits for ACR to be deployed
       - name: Login to Azure Container Registry
         if: env.TEST_PREFIX != ''
         run: |
           az acr login --name ${{ env.TEST_PREFIX }}acr
           echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
-      - name: Build dapr and its docker image and push them to test registry
+      - name: Push all container images to the registry
         if: env.TEST_PREFIX != ''
         run: |
-          make build
           make docker-push
-      - name: Build and push e2e test apps
-        if: env.TEST_PREFIX != ''
-        run: |
-          make build-e2e-app-all
           make push-e2e-app-all
 
   test-e2e:
