@@ -168,7 +168,7 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Build test prefix
+      - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
@@ -176,6 +176,10 @@ jobs:
           else
             echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
           fi
+          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
+          echo "TEST_CLUSTER=${{ env.TEST_PREFIX }}-aks" >> $GITHUB_ENV
+          echo "DAPR_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
+          echo "DAPR_TEST_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
         shell: bash
       - name: Build dapr and its docker image
         if: env.TEST_PREFIX != ''
@@ -192,7 +196,6 @@ jobs:
         if: env.TEST_PREFIX != ''
         run: |
           az acr login --name ${{ env.TEST_PREFIX }}acr
-          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
       - name: Push all container images to the registry
         if: env.TEST_PREFIX != ''
         run: |
@@ -282,7 +285,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
           enable-AzPSSession: true # Enable support for PowerShell
-      - name: Build test prefix
+      - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
@@ -290,16 +293,16 @@ jobs:
           else
             echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
           fi
-        shell: bash
-      - name: Connect to Kubernetes
-        if: env.TEST_PREFIX != ''
-        run: |
-          az aks get-credentials -n "${{ env.TEST_PREFIX }}-aks" -g "${{ env.TEST_RESOURCE_GROUP }}"
-          kubectl create namespace ${{ env.DAPR_NAMESPACE }}
           echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
           echo "TEST_CLUSTER=${{ env.TEST_PREFIX }}-aks" >> $GITHUB_ENV
           echo "DAPR_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
           echo "DAPR_TEST_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
+        shell: bash
+      - name: Connect to Kubernetes
+        if: env.TEST_PREFIX != ''
+        run: |
+          az aks get-credentials -n "${{ env.TEST_CLUSTER }}" -g "${{ env.TEST_RESOURCE_GROUP }}"
+          kubectl create namespace ${{ env.DAPR_NAMESPACE }}
         shell: bash
       - name: Setup environment variables for ${{ env.TEST_CLOUD_ENV }}
         if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
