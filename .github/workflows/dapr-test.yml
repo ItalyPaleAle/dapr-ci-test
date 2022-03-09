@@ -27,8 +27,177 @@ on:
     types: [e2e-test]
 
 jobs:
+  genprefix:
+    name: generate a prefix for the tests
+    runs-on: ubuntu-latest
+    outputs:
+      prefix: ${{ steps.prefix.outputs.prefix }}
+    steps:
+      # Generate a random sequence of characters that is used as prefix for this test
+      - name: Generate prefix
+        id: prefix
+        run: |
+          RAND_SUFFIX=$(echo $RANDOM | sha1sum | head -c 9)
+          echo "::set-output name=prefix::dapre2e${RAND_SUFFIX}"
+
+  deploy-infrastructure:
+    name: deploy ${{ matrix.target_os}} test infrastructure
+    needs: genprefix
+    # Always run on Linux as we're deploying remote infrastructure and on Linux it's faster
+    runs-on: ubuntu-latest
+    env:
+      TARGET_OS: ${{ matrix.target_os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        target_os: [linux, windows]
+    steps:
+      - name: Set up for scheduled test
+        if: github.event_name != 'repository_dispatch'
+        run: |
+          echo "CHECKOUT_REPO=${{ github.repository }}" >> $GITHUB_ENV
+          echo "CHECKOUT_REF=refs/heads/master" >> $GITHUB_ENV
+        shell: bash
+      - name: Parse test payload
+        if: github.event_name == 'repository_dispatch'
+        uses: actions/github-script@0.3.0
+        with:
+          github-token: ${{secrets.DAPR_BOT_TOKEN}}
+          script: |
+            const testPayload = context.payload.client_payload;
+            if (testPayload && testPayload.command == "ok-to-test") {
+              var fs = require('fs');
+              // Set environment variables
+              fs.appendFileSync(process.env.GITHUB_ENV,
+                `CHECKOUT_REPO=${testPayload.pull_head_repo}\n`+
+                `CHECKOUT_REF=${testPayload.pull_head_ref}`);
+            }
+      - name: Check out code into the Go module directory
+        if: env.CHECKOUT_REPO != ''
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ env.CHECKOUT_REPO }}
+          ref: ${{ env.CHECKOUT_REF }}
+      - name: Login to Azure
+        if: env.CHECKOUT_REPO != ''
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Build test prefix
+        if: env.CHECKOUT_REPO != ''
+        run: |
+          if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
+            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}w" >> $GITHUB_ENV
+          else
+            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
+          fi
+        shell: bash
+      - name: Deploy the test cluster
+        if: env.TEST_PREFIX != ''
+        run: |
+          RESOURCE_GROUP="Dapr-E2E-${{ env.TEST_PREFIX }}"
+          az group create --name "$RESOURCE_GROUP" --location eastus2
+          ENABLE_WINDOWS="false"
+          if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
+            ENABLE_WINDOWS="true"
+          fi
+          az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file ./tests/test-infra/azure-aks.bicep \
+            --parameters namePrefix="${{ env.TEST_PREFIX }}" location='eastus2' enableWindows=${ENABLE_WINDOWS}
+          echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
+        shell: bash
+
+  build:
+    name: build for  ${{ matrix.target_os }}
+    needs:
+      - genprefix
+    runs-on: ${{ matrix.os }}
+    env:
+      GOVER: "1.17"
+      GOOS: ${{ matrix.target_os }}
+      GOARCH: ${{ matrix.target_arch }}
+      GOPROXY: https://proxy.golang.org
+      TARGET_OS: ${{ matrix.target_os }}
+      TARGET_ARCH: ${{ matrix.target_arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2019]
+        target_arch: [amd64]
+        include:
+          - os: ubuntu-latest
+            target_os: linux
+          - os: windows-2019
+            target_os: windows
+    steps:
+      - name: Set up for scheduled test
+        if: github.event_name != 'repository_dispatch'
+        run: |
+          echo "CHECKOUT_REPO=${{ github.repository }}" >> $GITHUB_ENV
+          echo "CHECKOUT_REF=refs/heads/master" >> $GITHUB_ENV
+        shell: bash
+      - name: Parse test payload
+        if: github.event_name == 'repository_dispatch'
+        uses: actions/github-script@0.3.0
+        with:
+          github-token: ${{secrets.DAPR_BOT_TOKEN}}
+          script: |
+            const testPayload = context.payload.client_payload;
+            if (testPayload && testPayload.command == "ok-to-test") {
+              var fs = require('fs');
+              // Set environment variables
+              fs.appendFileSync(process.env.GITHUB_ENV,
+                `CHECKOUT_REPO=${testPayload.pull_head_repo}\n`+
+                `CHECKOUT_REF=${testPayload.pull_head_ref}`);
+            }
+      - name: Set up Go ${{ env.GOVER }}
+        if: env.CHECKOUT_REPO != ''
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GOVER }}
+      - name: Check out code into the Go module directory
+        if: env.CHECKOUT_REPO != ''
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ env.CHECKOUT_REPO }}
+          ref: ${{ env.CHECKOUT_REF }}
+      - name: Login to Azure
+        if: env.CHECKOUT_REPO != ''
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Build test prefix
+        if: env.CHECKOUT_REPO != ''
+        run: |
+          if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
+            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}w" >> $GITHUB_ENV
+          else
+            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
+          fi
+        shell: bash
+      - name: Login to Azure Container Registry
+        if: env.TEST_PREFIX != ''
+        run: |
+          az acr login --name ${{ env.TEST_PREFIX }}acr
+          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
+      - name: Build dapr and its docker image and push them to test registry
+        if: env.TEST_PREFIX != ''
+        run: |
+          make build
+          make docker-push
+      - name: Build and push e2e test apps
+        if: env.TEST_PREFIX != ''
+        run: |
+          make build-e2e-app-all
+          make push-e2e-app-all
+
   test-e2e:
     name: end-to-end ${{ matrix.target_os }} tests
+    needs:
+      - genprefix
+      - build
+      - deploy-infrastructure
     runs-on: ${{ matrix.os }}
     env:
       GOVER: "1.17"
@@ -106,37 +275,21 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
           enable-AzPSSession: true # Enable support for PowerShell
-      - name: Generate random name for test
+      - name: Build test prefix
         if: env.CHECKOUT_REPO != ''
         run: |
-          RAND_SUFFIX=$(echo $RANDOM | sha1sum | head -c 10)
-          echo "TEST_PREFIX=dapre2e${RAND_SUFFIX}" >> $GITHUB_ENV
-        shell: bash
-      - name: Deploy the test cluster
-        if: env.TEST_PREFIX != ''
-        run: |
-          RESOURCE_GROUP="Dapr-E2E-${{ env.TEST_PREFIX }}"
-          az group create --name "$RESOURCE_GROUP" --location eastus2
-          ENABLE_WINDOWS="false"
           if [ "${{ env.TARGET_OS }}" == "windows" ] ; then
-            ENABLE_WINDOWS="true"
+            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}w" >> $GITHUB_ENV
+          else
+            echo "TEST_PREFIX=dapre2e${{needs.genprefix.outputs.prefix}}l" >> $GITHUB_ENV
           fi
-          az deployment group create \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file ./tests/test-infra/azure-aks.bicep \
-            --parameters namePrefix="${{ env.TEST_PREFIX }}" location='eastus2' enableWindows=${ENABLE_WINDOWS}
-          echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
         shell: bash
-      - name: Login to Azure Container Registry
-        if: env.TEST_PREFIX != ''
-        run: |
-          az acr login --name ${{ env.TEST_PREFIX }}acr
-          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
       - name: Connect to Kubernetes
         if: env.TEST_PREFIX != ''
         run: |
           az aks get-credentials -n "${{ env.TEST_PREFIX }}-aks" -g "${{ env.TEST_RESOURCE_GROUP }}"
           kubectl create namespace ${{ env.DAPR_NAMESPACE }}
+          echo "DAPR_REGISTRY=${{ env.TEST_PREFIX }}acr.azurecr.io" >> $GITHUB_ENV
           echo "TEST_CLUSTER=${{ env.TEST_PREFIX }}-aks" >> $GITHUB_ENV
           echo "DAPR_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
           echo "DAPR_TEST_TAG=${{ env.TEST_PREFIX }}" >> $GITHUB_ENV
@@ -149,11 +302,6 @@ jobs:
         if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
         run: ./tests/test-infra/start_${{ env.TEST_CLOUD_ENV }}_setup.ps1
         shell: pwsh
-      - name: Build dapr and its docker image and push them to test registry
-        if: env.TEST_PREFIX != ''
-        run: |
-          make build
-          make docker-push
       - name: Preparing AKS cluster for test
         if: env.TEST_PREFIX != ''
         run: |
@@ -175,14 +323,7 @@ jobs:
         run: |
           netsh interface tcp set global initialRto=3000
           netsh interface tcp set global maxSynRetransmissions=8
-          netsh interface tcp show global
-      - name: Build e2e test apps
-        if: env.TEST_PREFIX != ''
-        run: make build-e2e-app-all
-      - name: Push e2e app images to test dockerhub
-        if: env.TEST_PREFIX != ''
-        run: |
-          make push-e2e-app-all
+          netsh interface tcp show global    
       - name: Verify cloud resources
         if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
         run: ./tests/test-infra/verify_${{ env.TEST_CLOUD_ENV }}_setup.ps1
