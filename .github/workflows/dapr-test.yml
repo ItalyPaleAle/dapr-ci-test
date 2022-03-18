@@ -224,12 +224,10 @@ jobs:
     needs:
       - build
       - deploy-infrastructure
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     env:
       GOVER: "1.17"
       KUBECTLVER: "v1.22.6"
-      GOOS: ${{ matrix.target_os }}
-      GOARCH: ${{ matrix.target_arch }}
       GOPROXY: https://proxy.golang.org
       TEST_CLOUD_ENV: "azure"
       HELMVER: "v3.7.2"
@@ -242,13 +240,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-2019]
+        target_os: [linux, windows]
         target_arch: [amd64]
-        include:
-          - os: ubuntu-latest
-            target_os: linux
-          - os: windows-2019
-            target_os: windows
     steps:
       - name: Set up container log path
         run: |
@@ -298,7 +291,6 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          enable-AzPSSession: true # Enable support for PowerShell
       - name: Build test prefix and set env vars
         if: env.CHECKOUT_REPO != ''
         run: |
@@ -334,6 +326,9 @@ jobs:
           make setup-helm-init
           make setup-test-env-redis
           make setup-test-env-kafka
+          if [ "${{ env.DAPR_TEST_STATE_STORE }}" == "" ] ; then
+            make setup-test-env-mongodb
+          fi
           kubectl get pods -n ${{ env.DAPR_NAMESPACE }}
       - name: Deploy dapr to AKS cluster
         if: env.TEST_PREFIX != ''
@@ -344,12 +339,6 @@ jobs:
       - name: Show dapr configurations
         if: env.TEST_PREFIX != ''
         run: kubectl get configurations daprsystem -n ${{ env.DAPR_NAMESPACE }} -o yaml
-      - name: Set windows TCP timeouts
-        if: matrix.target_os == 'windows'
-        run: |
-          netsh interface tcp set global initialRto=3000
-          netsh interface tcp set global maxSynRetransmissions=8
-          netsh interface tcp show global
       - name: Run E2E tests
         if: env.TEST_PREFIX != ''
         run: make test-e2e-all
@@ -413,8 +402,3 @@ jobs:
         if: always() && env.TEST_PREFIX != ''
         run: az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}"
         shell: bash
-      # TODO
-      #- name: Tears down cloud resources
-      #  if: always() && env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
-      #  run: ./tests/test-infra/teardown_${{ env.TEST_CLOUD_ENV }}.ps1
-      #  shell: pwsh
