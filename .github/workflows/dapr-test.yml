@@ -111,7 +111,7 @@ jobs:
           fi
           az deployment group create \
             --resource-group "${RESOURCE_GROUP}" \
-            --template-file ./tests/test-infra/azure-aks.bicep \
+            --template-file ./tests/test-infra/azure.bicep \
             --parameters namePrefix="${{ env.TEST_PREFIX }}" location=${REGION} enableWindows=${ENABLE_WINDOWS}
         shell: bash
 
