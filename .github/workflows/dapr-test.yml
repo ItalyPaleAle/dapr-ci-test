@@ -231,9 +231,7 @@ jobs:
       GOOS: ${{ matrix.target_os }}
       GOARCH: ${{ matrix.target_arch }}
       GOPROXY: https://proxy.golang.org
-      # TODO: Re-enable later
-      #TEST_CLOUD_ENV: "azure"
-      TEST_CLOUD_ENV: ""
+      TEST_CLOUD_ENV: "azure"
       HELMVER: "v3.7.2"
       DAPR_NAMESPACE: "dapr-tests"
       MAX_TEST_TIMEOUT: 5400
@@ -326,14 +324,10 @@ jobs:
           az aks get-credentials -n "${{ env.TEST_CLUSTER }}" -g "${{ env.TEST_RESOURCE_GROUP }}"
           kubectl create namespace ${{ env.DAPR_NAMESPACE }}
         shell: bash
-      - name: Setup environment variables for ${{ env.TEST_CLOUD_ENV }}
+      - name: Setup for cloud resources
         if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
-        run: ./tests/test-infra/setup_${{ env.TEST_CLOUD_ENV }}_env.ps1
-        shell: pwsh
-      - name: Start setup for cloud resources
-        if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
-        run: ./tests/test-infra/start_${{ env.TEST_CLOUD_ENV }}_setup.ps1
-        shell: pwsh
+        run: ./tests/test-infra/setup_${{ env.TEST_CLOUD_ENV }}.sh
+        shell: bash
       - name: Preparing AKS cluster for test
         if: env.TEST_PREFIX != ''
         run: |
@@ -355,11 +349,7 @@ jobs:
         run: |
           netsh interface tcp set global initialRto=3000
           netsh interface tcp set global maxSynRetransmissions=8
-          netsh interface tcp show global    
-      - name: Verify cloud resources
-        if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
-        run: ./tests/test-infra/verify_${{ env.TEST_CLOUD_ENV }}_setup.ps1
-        shell: pwsh
+          netsh interface tcp show global
       - name: Run E2E tests
         if: env.TEST_PREFIX != ''
         run: make test-e2e-all

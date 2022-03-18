@@ -2,9 +2,9 @@
 param namePrefix string
 
 @description('The location of the resources')
-param location string
+param location string = resourceGroup().location
 
-@description('If enabled, add a Windows node')
+@description('If enabled, add a Windows pool')
 param enableWindows bool = false
 
 // Disk size (in GB) for each of the agent pool nodes
@@ -84,11 +84,12 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-07-01' = {
         {
           name: 'winpol'
           osDiskSizeGB: osDiskSizeGB
+          osDiskType: 'Ephemeral'
           enableAutoScaling: true
           count: 1
           minCount: 1
-          maxCount: 3
-          vmSize: 'Standard_DS2_v2'
+          maxCount: 2
+          vmSize: 'Standard_DS3_v2'
           osType: 'Windows'
           type: 'VirtualMachineScaleSets'
           mode: 'User'
@@ -168,3 +169,5 @@ resource roleAssignVNet 'Microsoft.Authorization/roleAssignments@2020-04-01-prev
 }
 
 output controlPlaneFQDN string = aks.properties.fqdn
+output aksManagedIdentityClientId string = aks.properties.identityProfile.kubeletidentity.clientId
+output aksManagedIdentityPrincipalId string = aks.properties.identityProfile.kubeletidentity.objectId
