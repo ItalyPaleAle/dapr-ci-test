@@ -13,7 +13,7 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
   location: location
   properties: {
     consistencyPolicy: {
-      defaultConsistencyLevel: 'Session'
+      defaultConsistencyLevel: 'Strong'
     }
     locations: [
       {

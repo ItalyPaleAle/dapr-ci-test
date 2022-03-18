@@ -1,5 +1,4 @@
 @minLength(3)
-@maxLength(11)
 @description('Prefix for all the resources')
 param namePrefix string
 
