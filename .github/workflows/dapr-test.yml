@@ -224,6 +224,7 @@ jobs:
     needs:
       - build
       - deploy-infrastructure
+    # Always run on Linux as the local OS is irrelevant and this is faster
     runs-on: ubuntu-latest
     env:
       GOVER: "1.17"
@@ -400,5 +401,6 @@ jobs:
             }
       - name: Tear down Azure resources
         if: always() && env.TEST_PREFIX != ''
-        run: az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}"
+        run: |
+          az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}" || true
         shell: bash
