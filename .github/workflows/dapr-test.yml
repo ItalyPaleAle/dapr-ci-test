@@ -49,7 +49,7 @@ env:
 
 jobs:
   deploy-infrastructure:
-    name: deploy test infrastructure
+    name: Deploy test infrastructure
     runs-on: ubuntu-latest
     steps:
       - name: Set up for scheduled test
@@ -113,7 +113,7 @@ jobs:
         shell: bash
 
   build:
-    name: build for  ${{ matrix.target_os }}
+    name: Build for  ${{ matrix.target_os }}
     runs-on: ${{ matrix.os }}
     env:
       GOOS: ${{ matrix.target_os }}
@@ -153,7 +153,7 @@ jobs:
             }
       - name: Set up Go ${{ env.GOVER }}
         if: env.CHECKOUT_REPO != ''
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GOVER }}
       - name: Check out code
@@ -162,6 +162,26 @@ jobs:
         with:
           repository: ${{ env.CHECKOUT_REPO }}
           ref: ${{ env.CHECKOUT_REF }}
+      - name: Cache Go modules (Linux)
+        if: env.CHECKOUT_REPO != '' && runner.os == 'Linux'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
+      - name: Cache Go modules (Windows)
+        if: env.CHECKOUT_REPO != '' && runner.os == 'Windows'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\go-build
+            ~\go\pkg\mod
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
       - name: Login to Azure
         if: env.CHECKOUT_REPO != ''
         uses: azure/login@v1
@@ -219,7 +239,7 @@ jobs:
         shell: bash
 
   test-e2e:
-    name: end-to-end ${{ matrix.target_os }} tests
+    name: End-to-end ${{ matrix.target_os }} tests
     needs:
       - build
       - deploy-infrastructure
@@ -261,7 +281,7 @@ jobs:
             }
       - name: Set up Go ${{ env.GOVER }}
         if: env.CHECKOUT_REPO != ''
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GOVER }}
       - name: Check out code
@@ -270,6 +290,16 @@ jobs:
         with:
           repository: ${{ env.CHECKOUT_REPO }}
           ref: ${{ env.CHECKOUT_REF }}
+      - name: Cache Go modules (test)
+        if: env.CHECKOUT_REPO != '' && runner.os == 'Linux'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-tests-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tests-
       - uses: azure/setup-kubectl@v1
         with:
           version: ${{ env.KUBECTLVER }}
