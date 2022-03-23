@@ -20,6 +20,12 @@ param location string = resourceGroup().location
 @description('If enabled, add a Windows pool')
 param enableWindows bool = false
 
+@description('VM size to use for Linux nodes (agent pool)')
+param linuxVMSize string = 'Standard_DS2_v2'
+
+@description('VM size to use for Windows nodes, if enabled')
+param windowsVMSize string = 'Standard_DS3_v2'
+
 // Disk size (in GB) for each of the agent pool nodes
 // 0 applies the default
 var osDiskSizeGB = 0
@@ -79,7 +85,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-07-01' = {
           count: 2
           minCount: 2
           maxCount: 3
-          vmSize: 'Standard_DS2_v2'
+          vmSize: linuxVMSize
           osType: 'Linux'
           type: 'VirtualMachineScaleSets'
           mode: 'System'
@@ -102,7 +108,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-07-01' = {
           count: 1
           minCount: 1
           maxCount: 2
-          vmSize: 'Standard_DS3_v2'
+          vmSize: windowsVMSize
           osType: 'Windows'
           type: 'VirtualMachineScaleSets'
           mode: 'User'
