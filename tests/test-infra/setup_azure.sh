@@ -36,5 +36,21 @@ kubectl create secret generic cosmosdb-secret \
   --from-literal=url=https://${TEST_PREFIX}db.documents.azure.com:443/ \
   --from-literal=primaryMasterKey=${COSMOSDB_MASTER_KEY}
 
+# Set environmental variables to Service Bus state store
+export DAPR_TEST_PUBSUB=servicebus
+if [ -n "$GITHUB_ENV" ]; then
+  echo "DAPR_TEST_PUBSUB=${DAPR_TEST_PUBSUB}" >> $GITHUB_ENV
+fi
 
-# TODO: SERVICE BUS
+# Get the credentials for Service Bus
+SERVICEBUS_CONNSTRING=$(
+  az servicebus namespace authorization-rule keys list \
+    --resource-group "$TEST_RESOURCE_GROUP" \
+    --namespace-name "${TEST_PREFIX}sb" \
+    --name RootManageSharedAccessKey \
+    --query primaryConnectionString \
+    -o tsv
+)
+kubectl create secret generic servicebus-secret \
+  --namespace=$DAPR_NAMESPACE \
+  --from-literal=connectionString=${SERVICEBUS_CONNSTRING}
