@@ -152,10 +152,8 @@ resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2021-11-01' = {
   name: '${namePrefix}sb'
   location: location
   sku: {
-    /*name: 'Premium'
-    tier: 'Premium'
-    capacity: 16*/
-    name: 'Standard'
+    name: 'Premium'
+    capacity: 16
   }
   properties: {
     disableLocalAuth: false

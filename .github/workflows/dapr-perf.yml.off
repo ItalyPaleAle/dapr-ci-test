@@ -19,22 +19,34 @@ on:
   repository_dispatch:
     types: [perf-test]
   workflow_dispatch:
+
+env:
+  # Version of Go
+  GOVER: "1.17"
+  # Configure proxy for Go modules
+  GOPROXY: https://proxy.golang.org
+  # Version of kubectl
+  KUBECTLVER: "v1.22.6"
+  # If not empty, uses cloud resources for testing
+  TEST_CLOUD_ENV: "azure"
+  # Version of Helm
+  HELMVER: "v3.7.2"
+  # Kubernetes namespace to use
+  DAPR_NAMESPACE: "dapr-tests"
+  # Timeout for tests
+  MAX_TEST_TIMEOUT: 5400
+  # Space-separated of supported Azure regions: one will be picked randomly for each cluster
+  AZURE_REGIONS: "westus3 eastus2 canadacentral"
+
 jobs:
   test-perf:
-    name: perf tests
+    name: Perf tests
     runs-on: ubuntu-latest
     env:
-      GOVER: 1.17
       GOOS: linux
       GOARCH: amd64
-      GOPROXY: https://proxy.golang.org
-      DAPR_REGISTRY: ${{ secrets.DOCKER_TEST_REGISTRY }}
-      DAPR_TEST_REGISTRY: ${{ secrets.DOCKER_TEST_REGISTRY }}
       AZURE_STORAGE_ACCOUNT: ${{ secrets.PERF_AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_ACCESS_KEY: ${{ secrets.PERF_AZURE_STORAGE_KEY }}
-      HELMVER: v3.2.1
-      DAPR_NAMESPACE: dapr-tests
-      MAX_TEST_TIMEOUT: 5400
     steps:
       - name: Setup test output
         run: |
@@ -65,50 +77,34 @@ jobs:
             }
       - name: Set up Go ${{ env.GOVER }}
         if: env.CHECKOUT_REPO != ''
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GOVER }}
-      - name: Check out code into the Go module directory
+      - name: Check out code
         if: env.CHECKOUT_REPO != ''
         uses: actions/checkout@v2
         with:
           repository: ${{ env.CHECKOUT_REPO }}
           ref: ${{ env.CHECKOUT_REF }}
+      - name: Cache Go modules (perf)
+        if: env.CHECKOUT_REPO != '' && runner.os == 'Linux'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-perf-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-perf-
       - name: Set up Helm ${{ env.HELMVER }}
         uses: azure/setup-helm@v1
         with:
           version: ${{ env.HELMVER }}
-      - name: Login Azure
+      - name: Login to Azure
         if: env.CHECKOUT_REPO != ''
-        run: |
-          az login --service-principal -u ${{ secrets.AZURE_LOGIN_USER }} -p ${{ secrets.AZURE_LOGIN_PASS }} --tenant ${{ secrets.AZURE_TENANT }} --output none
-      - name: Find the test cluster
-        if: env.CHECKOUT_REPO != ''
-        run: ./tests/test-infra/find_cluster.sh ./tests/test-infra/perf-list.txt
-      - name: Add the test status comment to PR
-        if: github.event_name == 'repository_dispatch' && env.CHECKOUT_REPO != ''
-        env:
-          JOB_CONTEXT: ${{ toJson(job) }}
-        uses: actions/github-script@0.3.0
+        uses: azure/login@v1
         with:
-          github-token: ${{secrets.DAPR_BOT_TOKEN}}
-          script: |
-            const payload = context.payload;
-            const testPayload = payload.client_payload;
-            const testCluster = process.env.TEST_CLUSTER;
-
-            if (!testCluster) {
-              message = "All test clusters are occupied by the other tests. Please try to test later.";
-            } else {
-              message = `Found the available test cluster - ${testCluster}. Please wait until test is done.`;
-            }
-
-            await github.issues.createComment({
-              owner: testPayload.issue.owner,
-              repo: testPayload.issue.repo,
-              issue_number: testPayload.issue.number,
-              body: message
-            });
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: docker login
         if: env.TEST_CLUSTER != ''
         run: |
@@ -212,9 +208,6 @@ jobs:
                 body: message
               });
             }
-      - name: Clean up ${{ env.TEST_CLUSTER }} cluster
-        if: always() && env.TEST_CLUSTER != ''
-        run: make clean-test-env
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@master
