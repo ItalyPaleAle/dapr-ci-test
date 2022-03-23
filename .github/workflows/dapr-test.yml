@@ -72,7 +72,7 @@ jobs:
                 `CHECKOUT_REPO=${testPayload.pull_head_repo}\n`+
                 `CHECKOUT_REF=${testPayload.pull_head_ref}`);
             }
-      - name: Check out code into the Go module directory
+      - name: Check out code
         if: env.CHECKOUT_REPO != ''
         uses: actions/checkout@v2
         with:
@@ -110,17 +110,6 @@ jobs:
             --location ${REGION1} \
             --template-file ./tests/test-infra/azure-all.bicep \
             --parameters namePrefix="${{ env.TEST_PREFIX }}" location1=${REGION1} location2=${REGION2}
-        shell: bash
-      - name: Tear down Azure resources after failure
-        if: (failure() || cancelled()) && env.TEST_PREFIX != ''
-        run: |
-          # We are not waiting for these commands to complete, and we're ignoring errors
-          # Linux
-          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}l"
-          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}l" || true
-          # Windows
-          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}w"
-          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}w" || true
         shell: bash
 
   build:
@@ -167,7 +156,7 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GOVER }}
-      - name: Check out code into the Go module directory
+      - name: Check out code
         if: env.CHECKOUT_REPO != ''
         uses: actions/checkout@v2
         with:
@@ -228,13 +217,6 @@ jobs:
           make docker-push
           make push-e2e-app-all
         shell: bash
-      - name: Tear down Azure resources after failure
-        if: (failure() || cancelled()) && env.TEST_PREFIX != ''
-        run: |
-          echo "Starting removal of resource group ${{ env.TEST_RESOURCE_GROUP }}"
-          # We are not waiting for this command to complete, and we're ignoring errors
-          az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}" || true
-        shell: bash
 
   test-e2e:
     name: end-to-end ${{ matrix.target_os }} tests
@@ -282,7 +264,7 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GOVER }}
-      - name: Check out code into the Go module directory
+      - name: Check out code
         if: env.CHECKOUT_REPO != ''
         uses: actions/checkout@v2
         with:
@@ -409,10 +391,39 @@ jobs:
                 body: message
               });
             }
-      - name: Tear down Azure resources
-        if: always() && env.TEST_PREFIX != ''
+
+  cleanup:
+    name: Clean up Azure resources
+    runs-on: ubuntu-latest
+    needs:
+      - test-e2e
+    if: always()
+    steps:
+      - name: Login to Azure
+        if: env.CHECKOUT_REPO != ''
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Build test prefix
+        if: env.CHECKOUT_REPO != ''
         run: |
-          echo "Starting removal of resource group ${{ env.TEST_RESOURCE_GROUP }}"
-          # We are not waiting for this command to complete, and we're ignoring errors
-          az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}" || true
+          BASE_STR="CI|${GITHUB_SHA}|${GITHUB_SERVER_URL}|${GITHUB_REPOSITORY}|${GITHUB_RUN_ID}|${GITHUB_RUN_ATTEMPT}"
+          SUFFIX=$(echo $BASE_STR | sha1sum | head -c 10)
+          TEST_PREFIX="dapre2e${SUFFIX}"
+          echo "Test prefix is ${TEST_PREFIX}"
+          echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
+        shell: bash
+      - name: Delete Linux cluster
+        if: env.TEST_PREFIX != ''
+        run: |
+          # We are not waiting for these commands to complete, and we're ignoring errors
+          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}l"
+          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}l" || true
+        shell: bash
+      - name: Delete Windows cluster
+        if: env.TEST_PREFIX != ''
+        run: |
+          # We are not waiting for these commands to complete, and we're ignoring errors
+          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}w"
+          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}w" || true
         shell: bash
