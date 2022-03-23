@@ -19,11 +19,15 @@
 name: dapr-perf
 
 on:
-  schedule:
-    - cron: '0 */2 * * *'
+  # TODO: RE-enable later
+  # Run every 2 hours
+  #schedule:
+  #  - cron: '0 */2 * * *'
+  # Manual trigger
+  workflow_dispatch:
+  # Dispatch on external events
   repository_dispatch:
     types: [perf-test]
-  workflow_dispatch:
 
 env:
   # Version of Go
