@@ -304,13 +304,19 @@ jobs:
           echo "DAPR_TEST_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
           echo "TEST_RESOURCE_GROUP=Dapr-Perf-${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
+      - name: Connect to Kubernetes
+        if: env.TEST_PREFIX != ''
+        run: |
+          az aks get-credentials -n "${{ env.TEST_CLUSTER }}" -g "${{ env.TEST_RESOURCE_GROUP }}"
+          kubectl create namespace ${{ env.DAPR_NAMESPACE }}
+        shell: bash
       - name: Preparing AKS cluster for test
         if: env.TEST_PREFIX != ''
         run: |
           make setup-helm-init
           make setup-test-env
           kubectl get pods -n ${{ env.DAPR_NAMESPACE }}
-      - name: Deploy dapr to ${{ env.TEST_CLUSTER }} cluster
+      - name: Deploy dapr to AKS cluster
         if: env.TEST_PREFIX != ''
         run: make docker-deploy-k8s
       - name: Deploy test components
