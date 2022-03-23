@@ -28,22 +28,29 @@ on:
     types: [e2e-test]
 
 env:
+  # Version of Go
   GOVER: "1.17"
-  KUBECTLVER: "v1.22.6"
+  # Configure proxy for Go modules
   GOPROXY: https://proxy.golang.org
+  # Version of kubectl
+  KUBECTLVER: "v1.22.6"
+  # If not empty, uses cloud resources for testing
   TEST_CLOUD_ENV: "azure"
+  # Version of Helm
   HELMVER: "v3.7.2"
+  # Kubernetes namespace to use
   DAPR_NAMESPACE: "dapr-tests"
+  # Timeout for tests
   MAX_TEST_TIMEOUT: 5400
+  # Enable HA mode for tests
   HA_MODE: true
+  # Space-separated of supported Azure regions: one will be picked randomly for each cluster
+  AZURE_REGIONS: "westus3 westus westcentralus eastus2 canadacentral"
 
 jobs:
   deploy-infrastructure:
     name: deploy ${{ matrix.target_os}} test infrastructure
     runs-on: ubuntu-latest
-    env:
-      # Space-separated of supported Azure regions: one will be picked randomly for each cluster
-      AZURE_REGIONS: "eastus2 westus westcentralus"
     steps:
       - name: Set up for scheduled test
         if: github.event_name != 'repository_dispatch'
