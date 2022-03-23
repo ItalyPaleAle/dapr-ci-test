@@ -115,7 +115,7 @@ jobs:
 
   build:
     name: Build 
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     env:
       GOOS: linux
       GOARCH: amd64
