@@ -12,7 +12,7 @@
 #
 
 # Required secrets:
-# - AZURE_CREDENTIALS: JSON object containing the Azure service principal credentials. Example: https://github.com/Azure/login#configure-a-service-principal-with-a-secret
+# - AZURE_CREDENTIALS: JSON object containing the Azure service principal credentials. Docs: https://github.com/Azure/login#configure-a-service-principal-with-a-secret
 
 name: dapr-test
 
@@ -187,10 +187,12 @@ jobs:
         run: |
           make build
           make docker-build
+        shell: bash
       - name: Build e2e test apps
         if: env.TEST_PREFIX != ''
         run: |
           make build-e2e-app-all
+        shell: bash
       - name: Wait for Azure Container Registry deployment
         if: env.TEST_PREFIX != ''
         run: |
@@ -210,6 +212,7 @@ jobs:
         run: |
           make docker-push
           make push-e2e-app-all
+        shell: bash
 
   test-e2e:
     name: end-to-end ${{ matrix.target_os }} tests
@@ -315,6 +318,7 @@ jobs:
             make setup-test-env-mongodb
           fi
           kubectl get pods -n ${{ env.DAPR_NAMESPACE }}
+        shell: bash
       - name: Deploy dapr to AKS cluster
         if: env.TEST_PREFIX != ''
         run: make docker-deploy-k8s
