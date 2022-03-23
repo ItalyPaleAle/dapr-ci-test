@@ -49,7 +49,7 @@ env:
 
 jobs:
   deploy-infrastructure:
-    name: deploy ${{ matrix.target_os}} test infrastructure
+    name: deploy test infrastructure
     runs-on: ubuntu-latest
     steps:
       - name: Set up for scheduled test
@@ -95,11 +95,6 @@ jobs:
       - name: Deploy the test cluster
         if: env.TEST_PREFIX != ''
         run: |
-          # Resource group name
-          RESOURCE_GROUP="Dapr-E2E-${{ env.TEST_PREFIX }}"
-          echo "TEST_RESOURCE_GROUP=${RESOURCE_GROUP}" >> $GITHUB_ENV
-          echo "Resource group name: ${RESOURCE_GROUP}"
-
           # Select two random Azure regions
           REGIONS=(${{ env.AZURE_REGIONS }})
           REGIONS_SIZE=${#REGIONS[@]}
@@ -109,11 +104,23 @@ jobs:
           REGION2=${REGIONS[$REGIONS_IDX]}
           echo "Deploying to Azure regions: l:${REGION1} $w:{REGION2}"
 
+          # Start the deployment of both test clusters
           az deployment sub create \
             --name "${{ env.TEST_PREFIX }}" \
             --location ${REGION1} \
             --template-file ./tests/test-infra/azure-all.bicep \
             --parameters namePrefix="${{ env.TEST_PREFIX }}" location1=${REGION1} location2=${REGION2}
+        shell: bash
+      - name: Tear down Azure resources after failure
+        if: (failure() || cancelled()) && env.TEST_PREFIX != ''
+        run: |
+          # We are not waiting for these commands to complete, and we're ignoring errors
+          # Linux
+          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}l"
+          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}l" || true
+          # Windows
+          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}w"
+          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}w" || true
         shell: bash
 
   build:
@@ -188,6 +195,7 @@ jobs:
           echo "TEST_CLUSTER=${TEST_PREFIX}-aks" >> $GITHUB_ENV
           echo "DAPR_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
           echo "DAPR_TEST_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
+          echo "TEST_RESOURCE_GROUP=Dapr-E2E-${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
       - name: Build dapr and its docker image
         if: env.TEST_PREFIX != ''
@@ -219,6 +227,13 @@ jobs:
         run: |
           make docker-push
           make push-e2e-app-all
+        shell: bash
+      - name: Tear down Azure resources after failure
+        if: (failure() || cancelled()) && env.TEST_PREFIX != ''
+        run: |
+          echo "Starting removal of resource group ${{ env.TEST_RESOURCE_GROUP }}"
+          # We are not waiting for this command to complete, and we're ignoring errors
+          az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}" || true
         shell: bash
 
   test-e2e:
@@ -397,5 +412,7 @@ jobs:
       - name: Tear down Azure resources
         if: always() && env.TEST_PREFIX != ''
         run: |
+          echo "Starting removal of resource group ${{ env.TEST_RESOURCE_GROUP }}"
+          # We are not waiting for this command to complete, and we're ignoring errors
           az group delete --no-wait --yes --name "${{ env.TEST_RESOURCE_GROUP }}" || true
         shell: bash
