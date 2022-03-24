@@ -198,6 +198,8 @@ If you want to run the tests in a similar environment, you can deploy the test i
 
 This is the setup that our E2E tests use in GitHub Actions, which includes AKS, Azure Cosmos DB, and Azure Service Bus, in addition to an Azure Container Registry. To replicate the same setup, run:
 
+> **NOTE:** This deploys an Azure Service Bus instance with ultra-high performance and it is **very expensive**. If you deploy this, don't forget to shut it down after you're done!
+
 ```sh
 # Set the Azure region to use (needs to support Availability Zones)
 AZURE_REGION="eastus2"
