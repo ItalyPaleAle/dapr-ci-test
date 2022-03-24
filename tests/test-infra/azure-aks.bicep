@@ -26,9 +26,6 @@ param linuxVMSize string = 'Standard_DS2_v2'
 @description('VM size to use for Windows nodes, if enabled')
 param windowsVMSize string = 'Standard_DS3_v2'
 
-@description('If enabled, disables autoscaling on the Linux nodes (agent pool) for increased performance')
-param disableAgentPoolAutoscale bool = true
-
 // Disk size (in GB) for each of the agent pool nodes
 // 0 applies the default
 var osDiskSizeGB = 0
@@ -84,10 +81,8 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-07-01' = {
         {
           name: 'agentpool'
           osDiskSizeGB: osDiskSizeGB
-          enableAutoScaling: disableAgentPoolAutoscale ? false : true
-          count: disableAgentPoolAutoscale ? 3 : 2
-          minCount: disableAgentPoolAutoscale ? null : 2
-          maxCount: disableAgentPoolAutoscale ? null : 3
+          enableAutoScaling: false
+          count: 3
           vmSize: linuxVMSize
           osType: 'Linux'
           type: 'VirtualMachineScaleSets'
@@ -107,15 +102,13 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-07-01' = {
           name: 'winpol'
           osDiskSizeGB: osDiskSizeGB
           osDiskType: 'Ephemeral'
-          enableAutoScaling: true
-          count: 1
-          minCount: 1
-          maxCount: 2
+          enableAutoScaling: false
+          count: 2
           vmSize: windowsVMSize
           osType: 'Windows'
           type: 'VirtualMachineScaleSets'
           mode: 'User'
-          maxPods: 50
+          maxPods: 110
           availabilityZones: [
             '1'
             '2'

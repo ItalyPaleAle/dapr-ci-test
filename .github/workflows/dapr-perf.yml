@@ -113,8 +113,7 @@ jobs:
             --parameters \
               namePrefix="${{ env.TEST_PREFIX }}" \
               location=${REGION} \
-              linuxVMSize=Standard_D8s_v4 \
-              disableAgentPoolAutoscale=true
+              linuxVMSize=Standard_D8s_v4
         shell: bash
 
   build:
