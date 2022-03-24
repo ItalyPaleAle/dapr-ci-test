@@ -17,6 +17,9 @@ param namePrefix string
 @description('The location of the resources')
 param location string = resourceGroup().location
 
+@description('Desired throughput for Cosmos DB, in RU/s')
+param cosmosDbThroughput int = 1200
+
 var databaseAccountName = '${namePrefix}db'
 
 /* Cosmos DB Account */
@@ -46,7 +49,7 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
         id: 'dapre2e'
       }
       options: {
-        throughput: 600
+        throughput: cosmosDbThroughput
       }
     }
 
@@ -64,7 +67,7 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
           }
         }
         options: {
-          throughput: 600
+          throughput: cosmosDbThroughput
         }
       }
     }
@@ -83,7 +86,7 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
           }
         }
         options: {
-          throughput: 600
+          throughput: cosmosDbThroughput
         }
       }
     }
