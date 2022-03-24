@@ -17,10 +17,17 @@ param namePrefix string
 @description('The location of the resources')
 param location string = resourceGroup().location
 
-@description('Desired throughput for Cosmos DB, in RU/s')
-param cosmosDbThroughput int = 1200
+@description('Desired throughput for Cosmos DB, in RU/s. Set to 0 to use "serverless"')
+param cosmosDbThroughput int = 0
 
 var databaseAccountName = '${namePrefix}db'
+
+var cosmosDbServerlessCapabilities = {
+  name: 'EnableServerless'
+}
+var cosmosDbThroughputObj = {
+  throughput: cosmosDbThroughput
+}
 
 /* Cosmos DB Account */
 resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
@@ -36,6 +43,9 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
         locationName: location
       }
     ]
+    capabilities: cosmosDbThroughput == 0 ? [
+      cosmosDbServerlessCapabilities
+    ] : []
     databaseAccountOfferType: 'Standard'
     enableAutomaticFailover: false
     enableMultipleWriteLocations: false
@@ -48,9 +58,7 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
       resource: {
         id: 'dapre2e'
       }
-      options: {
-        throughput: cosmosDbThroughput
-      }
+      options: cosmosDbThroughput > 0 ? cosmosDbThroughputObj : {}
     }
 
     /* Container "items" */
@@ -66,9 +74,7 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
             kind: 'Hash'
           }
         }
-        options: {
-          throughput: cosmosDbThroughput
-        }
+        options: cosmosDbThroughput > 0 ? cosmosDbThroughputObj : {}
       }
     }
   
@@ -85,9 +91,7 @@ resource databaseAccount 'Microsoft.DocumentDB/databaseAccounts@2021-04-15' = {
             kind: 'Hash'
           }
         }
-        options: {
-          throughput: cosmosDbThroughput
-        }
+        options: cosmosDbThroughput > 0 ? cosmosDbThroughputObj : {}
       }
     }
   }
