@@ -13,6 +13,15 @@
 # limitations under the License.
 #
 
+if [[ -z "$TEST_PREFIX" ]]; then
+    echo "Environmental variable TEST_PREFIX must be set" 1>&2
+    exit 1
+fi
+if [[ -z "$TEST_RESOURCE_GROUP" ]]; then
+    echo "Environmental variable TEST_RESOURCE_GROUP must be set" 1>&2
+    exit 1
+fi
+
 # Set environmental variables to use Cosmos DB as state store
 export DAPR_TEST_STATE_STORE=cosmosdb
 export DAPR_TEST_QUERY_STATE_STORE=cosmosdb_query
