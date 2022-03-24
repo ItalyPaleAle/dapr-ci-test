@@ -22,7 +22,10 @@ param topicSubscriptions array
 
 resource topic 'Microsoft.ServiceBus/namespaces/topics@2021-11-01' = {
   name: '${namespace}/${topicName}'
-  properties: {}
+  properties: {
+    maxMessageSizeInKilobytes: 1024
+    maxSizeInMegabytes: 1024
+  }
 
   resource subscription 'subscriptions@2021-11-01' = [for sub in topicSubscriptions: {
     name: sub

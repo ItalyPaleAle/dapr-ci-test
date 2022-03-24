@@ -153,6 +153,7 @@ resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2021-11-01' = {
   location: location
   sku: {
     name: 'Premium'
+    tier: 'Premium'
     capacity: 16
   }
   properties: {
