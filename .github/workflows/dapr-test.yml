@@ -102,7 +102,7 @@ jobs:
           REGION1=${REGIONS[$REGIONS_IDX]}
           REGIONS_IDX=$(($RANDOM % $REGIONS_SIZE))
           REGION2=${REGIONS[$REGIONS_IDX]}
-          echo "Deploying to Azure regions: l:${REGION1} $w:{REGION2}"
+          echo "Deploying to Azure regions: Linux=${REGION1} Windows=${REGION2}"
 
           # Tags
           DATE_TAG=$(date --iso-8601=seconds)
