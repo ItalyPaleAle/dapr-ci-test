@@ -19,8 +19,8 @@ name: dapr-test
 
 on:
   # Run every 2 hours
-  schedule:
-    - cron: '0 */2 * * *'
+  #schedule:
+  #  - cron: '0 */2 * * *'
   # Manual trigger
   workflow_dispatch:
   # Dispatch on external events
@@ -142,13 +142,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-2019]
+        os: [ubuntu-latest]
         target_arch: [amd64]
         include:
           - os: ubuntu-latest
             target_os: linux
-          - os: windows-2019
-            target_os: windows
     steps:
       - name: Set up for scheduled test
         if: github.event_name != 'repository_dispatch'
@@ -289,7 +287,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target_os: [linux, windows]
+        target_os: [linux]
         target_arch: [amd64]
     steps:
       - name: Set up container log path
@@ -489,10 +487,4 @@ jobs:
           # We are not waiting for these commands to complete, and we're ignoring errors
           echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}l"
           az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}l" || true
-        shell: bash
-      - name: Delete Windows cluster
-        run: |
-          # We are not waiting for these commands to complete, and we're ignoring errors
-          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}w"
-          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}w" || true
         shell: bash
