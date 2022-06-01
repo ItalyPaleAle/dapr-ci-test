@@ -48,7 +48,7 @@ module linuxCluster 'azure.bicep' = {
 }
 
 // Deploy the Windows cluster in the second location
-resource WindowsResources 'Microsoft.Resources/resourceGroups@2020-10-01' = {
+/*resource WindowsResources 'Microsoft.Resources/resourceGroups@2020-10-01' = {
   name: 'Dapr-E2E-${namePrefix}w'
   location: location2
   tags: dateTag != '' ? {
@@ -64,3 +64,4 @@ module windowsCluster 'azure.bicep' = {
     enableWindows: true
   }
 }
+*/
