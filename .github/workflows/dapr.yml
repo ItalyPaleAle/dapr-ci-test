@@ -80,11 +80,11 @@ jobs:
         run: python ./.github/scripts/get_release_version.py ${{ github.event_name }}
       - name: Set REPO_OWNER
         if: matrix.target_os != 'darwin' 
-        shell: bash
         run: |
           REPO_OWNER=${{ github.repository_owner }}
           # Lowercase the value
           echo "REPO_OWNER=${REPO_OWNER,,}" >>${GITHUB_ENV}
+        shell: bash
       - name: Check white space in .md files
         if: matrix.target_os == 'linux' && github.event_name == 'pull_request'
         run: |
@@ -168,8 +168,9 @@ jobs:
           GOARCH: ${{ matrix.target_arch }}
           ARCHIVE_OUT_DIR: ${{ env.ARCHIVE_OUTDIR }}
         run: |
-          mkdir -p ${{ env.ARCHIVE_OUTDIR }}
+          mkdir -p "${ARCHIVE_OUT_DIR}"
           make release
+        shell: bash
       - name: upload artifacts
         uses: actions/upload-artifact@master
         with:
@@ -211,6 +212,7 @@ jobs:
           if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
             DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
           fi
+        shell: bash
       - name: Build and push Docker images to GHCR
         if: matrix.target_os != 'darwin' && github.event_name != 'pull_request'
         env:
@@ -225,6 +227,7 @@ jobs:
           if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
             DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
           fi
+        shell: bash
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@master
@@ -342,6 +345,7 @@ jobs:
             --body "${RELEASE_BODY}" \
             --prerelease true \
             ${RELEASE_ARTIFACT[*]}
+        shell: bash
       - name: Docker Hub Login
         uses: docker/login-action@v1 
         if: matrix.target_os != 'darwin' && env.DOCKER_REGISTRY_ID != ''
@@ -370,6 +374,7 @@ jobs:
           if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
             DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
           fi
+        shell: bash
       - name: Build and push Docker multiarch manifest to GHCR
         if: matrix.target_os != 'darwin' && env.DOCKER_REGISTRY_ID != ''
         env:
@@ -382,6 +387,7 @@ jobs:
           if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
             DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
           fi
+        shell: bash
       - name: Save release version
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
