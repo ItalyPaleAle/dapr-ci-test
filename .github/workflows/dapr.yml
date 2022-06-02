@@ -33,8 +33,10 @@ jobs:
     name: Build ${{ matrix.target_os }}_${{ matrix.target_arch }} binaries
     runs-on: ${{ matrix.os }}
     env:
-      GOVER: 1.18
+      GOVER: "1.18"
       GOLANGCILINT_VER: v1.45.2
+      PROTOC_VERSION: "3.14.0"
+      GITHUB_RELEASE_CLI_VERSION: "2.1.0"
       GOOS: ${{ matrix.target_os }}
       GOARCH: ${{ matrix.target_arch }}
       GOPROXY: https://proxy.golang.org
@@ -63,16 +65,13 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GOVER }}
-      - name: Install Docker CE for buildx
-        if: matrix.target_os == 'linux' && github.event_name != 'pull_request'
-        run: |
-          sudo apt update
-          sudo apt install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-          sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-          sudo apt update
-          sudo apt install docker-ce
-          docker -v
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: arm64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
       - name: Parse release version and set REL_VERSION
@@ -137,13 +136,13 @@ jobs:
       - name: Run gen-proto check diff
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         run: |
-          wget https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/protoc-3.14.0-linux-x86_64.zip
-          unzip protoc-3.14.0-linux-x86_64.zip -d protoc
+          wget https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip
+          unzip protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip -d protoc
           sudo cp -r protoc/include/google/ /usr/local/include/
           sudo chmod -R 755 /usr/local/include/google
           sudo cp protoc/bin/protoc /usr/local/bin/
           sudo chmod +x /usr/local/bin/protoc
-          rm -r protoc protoc-3.14.0-linux-x86_64.zip
+          rm -r protoc protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip
           make init-proto
           make gen-proto check-proto-diff
       - name: Run make test
@@ -155,9 +154,13 @@ jobs:
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         uses: codecov/codecov-action@v1
       - name: Run make release to build and archive binaries
+        env:
+          GOOS: ${{ matrix.target_os }}
+          GOARCH: ${{ matrix.target_arch }}
+          ARCHIVE_OUT_DIR: ${{ env.ARCHIVE_OUTDIR }}
         run: |
-          mkdir -p ${{ env.ARCHIVE_OUTDIR }}
-          make release GOOS=${{ matrix.target_os }} GOARCH=${{ matrix.target_arch }} ARCHIVE_OUT_DIR=${{ env.ARCHIVE_OUTDIR }}
+          mkdir -p "${ARCHIVE_OUTDIR}"
+          make release
       - name: upload artifacts
         uses: actions/upload-artifact@master
         with:
@@ -169,27 +172,61 @@ jobs:
         with:
           name: dapr_grafana_dashboards
           path: ./grafana/*.json
-      - name: docker login
-        if: matrix.target_os != 'darwin' && github.event_name != 'pull_request'
-        run: |
-          docker login -u ${{ secrets.DOCKER_REGISTRY_ID }} -p ${{ secrets.DOCKER_REGISTRY_PASS }}
-      - name: Build and push docker images
-        if: matrix.target_os != 'darwin' && github.event_name != 'pull_request'
-        run: |
-          echo "Build docker image and push image..."
-          make docker-push TARGET_OS=${{ matrix.target_os }} TARGET_ARCH=${{ matrix.target_arch }} DAPR_REGISTRY=${{ secrets.DOCKER_REGISTRY }} DAPR_TAG=${{ env.REL_VERSION }}
-      - name: GitHub container registry login
+      - name: Docker Hub Login
+        if: matrix.target_os != 'darwin' && github.event_name != 'pull_request' && env.DOCKER_REGISTRY_ID != ''
+        uses: docker/login-action@v1 
+        env:
+          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
+        with:
+          username: ${{ secrets.DOCKER_REGISTRY_ID }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASS }}
+      - name: GitHub Container Registry login
         if: matrix.target_os != 'darwin' && github.event_name != 'pull_request'
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push docker images to GitHub container registry
-        if: matrix.target_os != 'darwin' && github.event_name != 'pull_request'
+      - name: Build and push Linux Docker images to Docker Hub
+        if: matrix.target_os == 'linux' && github.event_name != 'pull_request' && env.DOCKER_REGISTRY_ID != ''
+        env:
+          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
+          DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+          TARGET_OS: ${{ matrix.target_os }}
+          TARGET_ARCH: ${{ matrix.target_arch }}
         run: |
-          echo "Build docker image and push image..."
-          make docker-push TARGET_OS=${{ matrix.target_os }} TARGET_ARCH=${{ matrix.target_arch }} DAPR_REGISTRY=ghcr.io/${{ github.repository_owner }} DAPR_TAG=${{ env.REL_VERSION }}
+          echo "Build Linux Docker image and push image to Docker Hub..."
+          DAPR_TAG=${{ env.REL_VERSION }} make docker-push
+          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
+      - name: Build and push Linux Docker images to GHCR
+        if: matrix.target_os == 'linux' && github.event_name != 'pull_request'
+        env:
+          DAPR_REGISTRY: ghcr.io/${{ github.repository_owner }}
+          TARGET_OS: ${{ matrix.target_os }}
+          TARGET_ARCH: ${{ matrix.target_arch }}
+        run: |
+          echo "Build Linux Docker image and push image to Docker Hub..."
+          DAPR_TAG=${{ env.REL_VERSION }} make docker-push
+          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
+      - name: Build and push Windows Docker images to Docker Hub
+        if: matrix.target_os == 'windows' && github.event_name != 'pull_request' && env.DOCKER_REGISTRY_ID != ''
+        env:
+          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
+          DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+          TARGET_OS: ${{ matrix.target_os }}
+          TARGET_ARCH: ${{ matrix.target_arch }}
+        run: |
+          echo "Build Windows Docker image and push image to Docker Hub..."
+          DAPR_TAG=${{ env.REL_VERSION }} make docker-push
+      - name: Build and push Windows Docker images to GHCR
+        if: matrix.target_os == 'windows' && github.event_name != 'pull_request'
+        env:
+          DAPR_REGISTRY: ghcr.io/${{ github.repository_owner }}
+          TARGET_OS: ${{ matrix.target_os }}
+          TARGET_ARCH: ${{ matrix.target_arch }}
+        run: |
+          echo "Build Windows Docker image and push image to Docker Hub..."
+          DAPR_TAG=${{ env.REL_VERSION }} make docker-push
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@master
@@ -214,15 +251,13 @@ jobs:
           version: ${{ env.HELMVER }}
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-      - name: Install Docker CE for buildx
-        run: |
-          sudo apt update
-          sudo apt install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-          sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-          sudo apt update
-          sudo apt install docker-ce
-          docker -v
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: arm64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Parse release version and set REL_VERSION
         run: python ./.github/scripts/get_release_version.py ${{ github.event_name }}
       - name: Update Helm chart files for release version ${{ env.REL_VERSION }}
@@ -233,37 +268,37 @@ jobs:
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}
           mv ./dist/install/dapr.yaml ${{ env.ARTIFACT_DIR }}/dapr-operator.yaml
-      - name: download artifacts - dapr_linux_amd64
+      - name: "download artifact: dapr_linux_amd64"
         uses: actions/download-artifact@master
         with:
           name: dapr_linux_amd64
           path: ${{ env.ARTIFACT_DIR }}
-      - name: download artifacts - dapr_linux_arm
+      - name: "download artifact: dapr_linux_arm"
         uses: actions/download-artifact@master
         with:
           name: dapr_linux_arm
           path: ${{ env.ARTIFACT_DIR }}
-      - name: download artifacts - dapr_linux_arm64
+      - name: "download artifact: dapr_linux_arm64"
         uses: actions/download-artifact@master
         with:
           name: dapr_linux_arm64
           path: ${{ env.ARTIFACT_DIR }}
-      - name: download artifacts - dapr_windows_amd64
+      - name: "download artifact: dapr_windows_amd64"
         uses: actions/download-artifact@master
         with:
           name: dapr_windows_amd64
           path: ${{ env.ARTIFACT_DIR }}
-      - name: download artifacts - dapr_darwin_amd64
+      - name: "download artifact: dapr_darwin_amd64"
         uses: actions/download-artifact@master
         with:
           name: dapr_darwin_amd64
           path: ${{ env.ARTIFACT_DIR }}
-      - name: download artifacts - dapr_darwin_arm64
+      - name: "download artifact: dapr_darwin_arm64"
         uses: actions/download-artifact@master
         with:
           name: dapr_darwin_arm64
           path: ${{ env.ARTIFACT_DIR }}
-      - name: download artifacts - dapr_grafana_dashboards
+      - name: "download artifact: dapr_grafana_dashboards"
         uses: actions/download-artifact@master
         with:
           name: dapr_grafana_dashboards
@@ -288,7 +323,7 @@ jobs:
         if: startswith(github.ref, 'refs/tags/v')
         run: |
           echo "installing github-release-cli..."
-          sudo npm install --silent --no-progress -g github-release-cli@1.3.1
+          sudo npm install --silent --no-progress -g github-release-cli@${{ env.GITHUB_RELEASE_CLI_VERSION }}
           if [ "$LATEST_RELEASE" = "true" ]; then
             export RELEASE_BODY=`cat ./docs/release_notes/v${REL_VERSION}.md`
           else
@@ -302,31 +337,59 @@ jobs:
           export GITHUB_TOKEN=${{ secrets.DAPR_BOT_TOKEN }}
           echo "Uploading Dapr Runtime Binaries to GitHub Release"
           github-release upload \
-            --owner $OWNER_NAME --repo $REPO_NAME \
+            --owner $OWNER_NAME \
+            --repo $REPO_NAME \
             --tag "v${REL_VERSION}" \
-            --name "Dapr Runtime v${REL_VERSION}" \
+            --release-name "Dapr Runtime v${REL_VERSION}" \
             --body "${RELEASE_BODY}" \
             --prerelease true \
             ${RELEASE_ARTIFACT[*]}
-      - name: docker login
-        run: |
-          docker login -u ${{ secrets.DOCKER_REGISTRY_ID }} -p ${{ secrets.DOCKER_REGISTRY_PASS }}
-      - name: Build and push docker multiarch manifest
-        if: matrix.target_os != 'darwin'
-        run: |
-          echo "Build docker multiarch image manifest and push it"
-          make docker-publish DAPR_REGISTRY=${{ secrets.DOCKER_REGISTRY }} DAPR_TAG=${{ env.REL_VERSION }}
-      - name: GitHub container registry login
+      - name: Docker Hub Login
+        uses: docker/login-action@v1 
+        if: matrix.target_os != 'darwin' && env.DOCKER_REGISTRY_ID != ''
+        env:
+          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
+        with:
+          username: ${{ secrets.DOCKER_REGISTRY_ID }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASS }}
+      - name: GitHub Container Registry login
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push docker multiarch manifest to ghcr
-        if: matrix.target_os != 'darwin'
+      - name: Build and push Linux Docker multiarch manifest to Docker Hub
+        if: matrix.target_os == 'linux' && env.DOCKER_REGISTRY_ID != ''
+        env:
+          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
+          DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
         run: |
-          echo "Build docker multiarch image manifest and push it"
-          make docker-publish DAPR_REGISTRY=ghcr.io/${{ github.repository_owner }} DAPR_TAG=${{ env.REL_VERSION }}
+          echo "Build Docker multiarch manifest and push to Docker Hub"
+          DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
+          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
+      - name: Build and push Linux Docker multiarch manifest to GHCR
+        if: matrix.target_os == 'linux'
+        env:
+           DAPR_REGISTRY: ghcr.io/${{ github.repository_owner }}
+        run: |
+          echo "Build Docker multiarch manifest and push to GHCR"
+          DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
+          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
+      - name: Build and push Windows Docker multiarch manifest to Docker Hub
+        if: matrix.target_os == 'windows' && env.DOCKER_REGISTRY_ID != ''
+        env:
+          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
+          DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+        run: |
+          echo "Build Docker multiarch manifest and push to Docker Hub"
+          DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
+      - name: Build and push Windows Docker multiarch manifest to GHCR
+        if: matrix.target_os == 'windows'
+        env:
+           DAPR_REGISTRY: ghcr.io/${{ github.repository_owner }}
+        run: |
+          echo "Build Docker multiarch manifest and push to GHCR"
+          DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
       - name: Save release version
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
@@ -347,10 +410,11 @@ jobs:
   # This job downloads the helm charts package artifact uploaded by the publish job,
   # checks out the helm charts git hub pages repo and commits the latest version of
   # helm charts package.
+  # This does not run on forks
   helmpublish:
     name: Publish helm charts to Helm github pages repo
     needs: publish
-    if: startswith(github.ref, 'refs/tags/v')
+    if: startswith(github.ref, 'refs/tags/v') && ${{ github.repository_owner }} == 'dapr'
     env:
       ARTIFACT_DIR: ./release
       DAPR_VERSION_ARTIFACT: dapr_version
