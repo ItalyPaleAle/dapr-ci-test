@@ -372,13 +372,16 @@ jobs:
           DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
           DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
         run: |
-          echo "Build Docker multiarch manifest and push to Docker Hub"
+          echo "Build Docker multiarch manifest and push to GHCR"
           DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
 
+          # Publish the `-mariner` tag
           # Mariner images are built only on linux/amd64 and linux/arm64
-          if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
-            DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
-          fi
+          # Also, these use the "latest-mariner" tag if it's the latest
+          DOCKER_MULTI_ARCH="linux-amd64 linux-arm64" \
+          DAPR_TAG="${{ env.REL_VERSION }}-mariner" \
+          LATEST_TAG=latest-mariner \
+            make docker-publish
         shell: bash
       - name: Build and push Docker multiarch manifest to GHCR
         if: matrix.target_os != 'darwin'
@@ -388,24 +391,27 @@ jobs:
           echo "Build Docker multiarch manifest and push to GHCR"
           DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
 
+          # Publish the `-mariner` tag
           # Mariner images are built only on linux/amd64 and linux/arm64
-          if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
-            DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
-          fi
+          # Also, these use the "latest-mariner" tag if it's the latest
+          DOCKER_MULTI_ARCH="linux-amd64 linux-arm64" \
+          DAPR_TAG="${{ env.REL_VERSION }}-mariner" \
+          LATEST_TAG=latest-mariner \
+            make docker-publish
         shell: bash
       - name: Save release version
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
           echo ${REL_VERSION} > ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}/${{ env.DAPR_VERSION_ARTIFACT }}
       - name: Package Helm chart
-        if: ${{ env.LATEST_RELEASE }} == "true" && env.DOCKER_REGISTRY != ''
+        if: ${{ env.LATEST_RELEASE }} == "true" && env.DOCKER_REGISTRY != ''
         env:
               HELM_CHARTS_DIR: charts/dapr
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
           helm package ${{ env.HELM_CHARTS_DIR }} --destination ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
       - name: Upload Helm charts package to artifacts
-        if: ${{ env.LATEST_RELEASE }} == "true" && env.DOCKER_REGISTRY != ''
+        if: ${{ env.LATEST_RELEASE }} == "true" && env.DOCKER_REGISTRY != ''
         uses: actions/upload-artifact@master
         with:
           name: dapr_helm_charts_package
