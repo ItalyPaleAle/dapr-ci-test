@@ -168,7 +168,7 @@ jobs:
           GOARCH: ${{ matrix.target_arch }}
           ARCHIVE_OUT_DIR: ${{ env.ARCHIVE_OUTDIR }}
         run: |
-          mkdir -p "${ARCHIVE_OUTDIR}"
+          mkdir -p "${ARCHIVE_OUT_DIR}"
           make release
       - name: upload artifacts
         uses: actions/upload-artifact@master
