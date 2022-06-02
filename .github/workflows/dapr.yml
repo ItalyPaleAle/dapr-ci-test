@@ -196,46 +196,35 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push Linux Docker images to Docker Hub
-        if: matrix.target_os == 'linux' && github.event_name != 'pull_request' && env.DOCKER_REGISTRY_ID != ''
+      - name: Build and push Docker images to Docker Hub
+        if: matrix.target_os != 'darwin' && github.event_name != 'pull_request' && env.DOCKER_REGISTRY_ID != ''
         env:
           DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
           DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
           TARGET_OS: ${{ matrix.target_os }}
           TARGET_ARCH: ${{ matrix.target_arch }}
         run: |
-          echo "Build Linux Docker image and push image to Docker Hub..."
+          echo "Build Docker images and push to Docker Hub..."
           DAPR_TAG=${{ env.REL_VERSION }} make docker-push
-          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
-      - name: Build and push Linux Docker images to GHCR
-        if: matrix.target_os == 'linux' && github.event_name != 'pull_request'
+
+          # Mariner images are built only on linux/amd64 and linux/arm64
+          if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
+            DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
+          fi
+      - name: Build and push Docker images to GHCR
+        if: matrix.target_os != 'darwin' && github.event_name != 'pull_request'
         env:
           DAPR_REGISTRY: ghcr.io/${{ env.REPO_OWNER }}
           TARGET_OS: ${{ matrix.target_os }}
           TARGET_ARCH: ${{ matrix.target_arch }}
         run: |
-          echo "Build Linux Docker image and push image to Docker Hub..."
+          echo "Build Docker images and push to GHCR..."
           DAPR_TAG=${{ env.REL_VERSION }} make docker-push
-          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
-      - name: Build and push Windows Docker images to Docker Hub
-        if: matrix.target_os == 'windows' && github.event_name != 'pull_request' && env.DOCKER_REGISTRY_ID != ''
-        env:
-          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
-          DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-          TARGET_OS: ${{ matrix.target_os }}
-          TARGET_ARCH: ${{ matrix.target_arch }}
-        run: |
-          echo "Build Windows Docker image and push image to Docker Hub..."
-          DAPR_TAG=${{ env.REL_VERSION }} make docker-push
-      - name: Build and push Windows Docker images to GHCR
-        if: matrix.target_os == 'windows' && github.event_name != 'pull_request'
-        env:
-          DAPR_REGISTRY: ghcr.io/${{ env.REPO_OWNER }}
-          TARGET_OS: ${{ matrix.target_os }}
-          TARGET_ARCH: ${{ matrix.target_arch }}
-        run: |
-          echo "Build Windows Docker image and push image to Docker Hub..."
-          DAPR_TAG=${{ env.REL_VERSION }} make docker-push
+
+          # Mariner images are built only on linux/amd64 and linux/arm64
+          if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
+            DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-push
+          fi
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@master
@@ -368,38 +357,31 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push Linux Docker multiarch manifest to Docker Hub
-        if: matrix.target_os == 'linux' && env.DOCKER_REGISTRY_ID != ''
+      - name: Build and push Docker multiarch manifest to Docker Hub
+        if: matrix.target_os != 'darwin' && env.DOCKER_REGISTRY_ID != ''
         env:
           DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
           DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
         run: |
           echo "Build Docker multiarch manifest and push to Docker Hub"
           DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
-          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
-      - name: Build and push Linux Docker multiarch manifest to GHCR
-        if: matrix.target_os == 'linux'
+
+          # Mariner images are built only on linux/amd64 and linux/arm64
+          if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
+            DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
+          fi
+      - name: Build and push Docker multiarch manifest to GHCR
+        if: matrix.target_os != 'darwin' && env.DOCKER_REGISTRY_ID != ''
         env:
            DAPR_REGISTRY: ghcr.io/${{ env.REPO_OWNER }}
         run: |
           echo "Build Docker multiarch manifest and push to GHCR"
           DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
-          DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
-      - name: Build and push Windows Docker multiarch manifest to Docker Hub
-        if: matrix.target_os == 'windows' && env.DOCKER_REGISTRY_ID != ''
-        env:
-          DOCKER_REGISTRY_ID: ${{ secrets.DOCKER_REGISTRY_ID }}
-          DAPR_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-        run: |
-          echo "Build Docker multiarch manifest and push to Docker Hub"
-          DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
-      - name: Build and push Windows Docker multiarch manifest to GHCR
-        if: matrix.target_os == 'windows'
-        env:
-           DAPR_REGISTRY: ghcr.io/${{ env.REPO_OWNER }}
-        run: |
-          echo "Build Docker multiarch manifest and push to GHCR"
-          DAPR_TAG="${{ env.REL_VERSION }}" make docker-publish
+
+          # Mariner images are built only on linux/amd64 and linux/arm64
+          if [ "$TARGET_OS" = "linux" ] && [ "$TARGET_ARCH" != "arm" ]; then
+            DOCKERFILE=Dockerfile-mariner DAPR_TAG="${{ env.REL_VERSION }}-mariner" make docker-publish
+          fi
       - name: Save release version
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
