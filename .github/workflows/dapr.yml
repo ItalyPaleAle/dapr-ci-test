@@ -398,14 +398,14 @@ jobs:
           mkdir -p ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
           echo ${REL_VERSION} > ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}/${{ env.DAPR_VERSION_ARTIFACT }}
       - name: Package Helm chart
-        if: env.LATEST_RELEASE == "true" && env.DOCKER_REGISTRY != ''
+        if: ${{ env.LATEST_RELEASE }} == "true" && env.DOCKER_REGISTRY != ''
         env:
               HELM_CHARTS_DIR: charts/dapr
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
           helm package ${{ env.HELM_CHARTS_DIR }} --destination ${{ env.ARTIFACT_DIR }}/${{ env.HELM_PACKAGE_DIR }}
       - name: Upload Helm charts package to artifacts
-        if: env.LATEST_RELEASE == "true" && env.DOCKER_REGISTRY != ''
+        if: ${{ env.LATEST_RELEASE }} == "true" && env.DOCKER_REGISTRY != ''
         uses: actions/upload-artifact@master
         with:
           name: dapr_helm_charts_package
