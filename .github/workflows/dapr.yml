@@ -381,7 +381,7 @@ jobs:
           fi
         shell: bash
       - name: Build and push Docker multiarch manifest to GHCR
-        if: matrix.target_os != 'darwin' && env.DOCKER_REGISTRY_ID != ''
+        if: matrix.target_os != 'darwin'
         env:
            DAPR_REGISTRY: ghcr.io/${{ env.REPO_OWNER }}
         run: |
