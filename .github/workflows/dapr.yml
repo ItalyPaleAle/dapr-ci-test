@@ -15,7 +15,8 @@ name: dapr
 
 on:
   #schedule:
-  #    - cron: '00 22 * * *'
+  #   - cron: '00 22 * * *'
+  workflow_dispatch:
   push:
     branches:
       - master
@@ -75,7 +76,7 @@ jobs:
         if: matrix.target_os == 'linux' && github.event_name != 'pull_request'
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-      - name: Parse release version and set REL_VERSION
+      - name: Parse release version and set REL_VERSION and LATEST_RELEASE
         run: python ./.github/scripts/get_release_version.py ${{ github.event_name }}
       - name: Set REPO_OWNER
         if: matrix.target_os != 'darwin'
@@ -251,7 +252,7 @@ jobs:
           version: ${{ env.HELMVER }}
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-      - name: Parse release version and set REL_VERSION
+      - name: Parse release version and set REL_VERSION and LATEST_RELEASE
         run: python ./.github/scripts/get_release_version.py ${{ github.event_name }}
       - name: Set REPO_OWNER
         if: matrix.target_os != 'darwin'
