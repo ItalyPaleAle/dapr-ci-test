@@ -154,11 +154,11 @@ jobs:
           rm -r protoc protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip
           make init-proto
           make gen-proto check-proto-diff
-      - name: Run make test
-        if: matrix.target_arch == 'amd64'
-        env:
-          COVERAGE_OPTS: "-coverprofile=coverage.txt -covermode=atomic"
-        run: make test
+      #- name: Run make test
+      #  if: matrix.target_arch == 'amd64'
+      #  env:
+      #    COVERAGE_OPTS: "-coverprofile=coverage.txt -covermode=atomic"
+      #  run: make test
       - name: Codecov
         if: matrix.target_arch == 'amd64' && matrix.target_os == 'linux'
         uses: codecov/codecov-action@v1
