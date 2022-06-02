@@ -73,6 +73,7 @@ jobs:
       - name: Parse release version and set REL_VERSION
         run: python ./.github/scripts/get_release_version.py ${{ github.event_name }}
       - name: Set REPO_OWNER
+        if: matrix.target_os != 'darwin' 
         shell: bash
         run: |
           REPO_OWNER=${{ github.repository_owner }}
@@ -259,6 +260,7 @@ jobs:
       - name: Parse release version and set REL_VERSION
         run: python ./.github/scripts/get_release_version.py ${{ github.event_name }}
       - name: Set REPO_OWNER
+        if: matrix.target_os != 'darwin' 
         shell: bash
         run: |
           REPO_OWNER=${{ github.repository_owner }}
