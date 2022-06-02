@@ -46,15 +46,15 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         target_arch: [amd64]
-        #os: [ubuntu-latest, windows-2019, macOS-latest]
-        #target_arch: [arm, arm64, amd64]
+        os: [ubuntu-latest, windows-2019, macOS-latest]
+        target_arch: [arm, arm64, amd64]
         include:
           - os: ubuntu-latest
             target_os: linux
-          #- os: windows-2019
-          #  target_os: windows
-          #- os: macOS-latest
-          #  target_os: darwin
+          - os: windows-2019
+            target_os: windows
+          - os: macOS-latest
+            target_os: darwin
         exclude:
           - os: windows-2019
             target_arch: arm
