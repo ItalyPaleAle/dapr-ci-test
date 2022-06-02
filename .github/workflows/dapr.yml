@@ -229,7 +229,7 @@ jobs:
           fi
         shell: bash
       - name: Upload test results
-        if: always()
+        if: always() && matrix.target_arch == 'amd64'
         uses: actions/upload-artifact@master
         with:
           name: ${{ matrix.target_os }}_${{ matrix.target_arch }}_test_unit.json
@@ -381,7 +381,7 @@ jobs:
           fi
         shell: bash
       - name: Build and push Docker multiarch manifest to GHCR
-        if: matrix.target_os != 'darwin' && env.DOCKER_REGISTRY_ID != ''
+        if: matrix.target_os != 'darwin'
         env:
            DAPR_REGISTRY: ghcr.io/${{ env.REPO_OWNER }}
         run: |
