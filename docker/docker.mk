@@ -47,7 +47,7 @@ else
 endif
 
 # Supported docker image architecture
-DOCKER_MULTI_ARCH=linux-amd64 linux-arm linux-arm64 windows-amd64
+DOCKER_MULTI_ARCH?=linux-amd64 linux-arm linux-arm64 windows-amd64
 
 ################################################################################
 # Target: docker-build, docker-push                                            #
