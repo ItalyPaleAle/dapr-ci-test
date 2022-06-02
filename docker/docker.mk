@@ -25,16 +25,16 @@ DAPR_SENTRY_IMAGE_NAME=sentry
 BIN_PATH=$(OUT_DIR)/$(TARGET_OS)_$(TARGET_ARCH)
 
 ifeq ($(TARGET_OS), windows)
-  DOCKERFILE:=Dockerfile-windows
+  DOCKERFILE?:=Dockerfile-windows
   BIN_PATH := $(BIN_PATH)/release
 else ifeq ($(origin DEBUG), undefined)
-  DOCKERFILE:=Dockerfile
+  DOCKERFILE?:=Dockerfile
   BIN_PATH := $(BIN_PATH)/release
 else ifeq ($(DEBUG),0)
-  DOCKERFILE:=Dockerfile
+  DOCKERFILE?:=Dockerfile
   BIN_PATH := $(BIN_PATH)/release
 else
-  DOCKERFILE:=Dockerfile-debug
+  DOCKERFILE?:=Dockerfile-debug
   BIN_PATH := $(BIN_PATH)/debug
 endif
 
