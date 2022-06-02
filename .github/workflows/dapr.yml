@@ -229,7 +229,7 @@ jobs:
           fi
         shell: bash
       - name: Upload test results
-        if: always()
+        if: always() && matrix.target_arch == 'amd64'
         uses: actions/upload-artifact@master
         with:
           name: ${{ matrix.target_os }}_${{ matrix.target_arch }}_test_unit.json
