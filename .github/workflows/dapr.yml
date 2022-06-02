@@ -417,7 +417,7 @@ jobs:
   helmpublish:
     name: Publish helm charts to Helm github pages repo
     needs: publish
-    if: startswith(github.ref, 'refs/tags/v') && github.repository_owner == 'dapr' && secrets.DOCKER_REGISTRY != ''
+    if: startswith(github.ref, 'refs/tags/v') && github.repository_owner == 'dapr'
     env:
       ARTIFACT_DIR: ./release
       DAPR_VERSION_ARTIFACT: dapr_version
