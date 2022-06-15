@@ -15,8 +15,8 @@ name: dapr
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '00 22 * * *'
+  #schedule:
+  #  - cron: '00 22 * * *'
   push:
     branches:
       - master
@@ -44,15 +44,11 @@ jobs:
       TEST_OUTPUT_FILE_PREFIX: test_report
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-2019, macOS-latest]
-        target_arch: [arm, arm64, amd64]
+        os: [ubuntu-latest]
+        target_arch: [amd64]
         include:
           - os: ubuntu-latest
             target_os: linux
-          - os: windows-2019
-            target_os: windows
-          - os: macOS-latest
-            target_os: darwin
         exclude:
           - os: windows-2019
             target_arch: arm
@@ -238,7 +234,7 @@ jobs:
   publish:
     name: Publish docker image and binaries
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'NEVER RUN'
     env:
       ARTIFACT_DIR: ./release
       HELM_PACKAGE_DIR: helm

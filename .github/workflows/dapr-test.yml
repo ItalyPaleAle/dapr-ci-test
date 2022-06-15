@@ -23,8 +23,8 @@ name: dapr-test
 
 on:
   # Run every 2 hours
-  schedule:
-    - cron: '0 */2 * * *'
+  #schedule:
+  #  - cron: '0 */2 * * *'
   # Manual trigger
   workflow_dispatch:
   # Dispatch on external events

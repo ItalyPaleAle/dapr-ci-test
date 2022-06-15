@@ -17,11 +17,11 @@ on:
   # Manual trigger
   workflow_dispatch:
   # On pull requests
-  pull_request:
-    branches:
-      - master
-      - 'release-*'
-      - 'feature/*'
+  #pull_request:
+  #  branches:
+  #    - master
+  #    - 'release-*'
+  #    - 'feature/*'
 
 defaults:
   run:
