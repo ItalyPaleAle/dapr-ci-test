@@ -493,7 +493,7 @@ jobs:
             }
 
   cleanup:
-    name: Clean up Azure resources
+    name: Stop clusters
     runs-on: ubuntu-latest
     needs:
       - test-e2e
@@ -511,15 +511,13 @@ jobs:
           echo "Test prefix is ${TEST_PREFIX}"
           echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
-      - name: Delete Linux cluster
+      - name: Stop Linux cluster
         run: |
           # We are not waiting for these commands to complete, and we're ignoring errors
-          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}l"
-          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}l" || true
+          az aks stop -n "${{ env.TEST_PREFIX }}l-aks" -g "Dapr-E2E-${{ env.TEST_PREFIX }}l" --no-wait || true
         shell: bash
-      - name: Delete Windows cluster
+      - name: Stop Windows cluster
         run: |
           # We are not waiting for these commands to complete, and we're ignoring errors
-          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}w"
-          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}w" || true
+          az aks stop -n "${{ env.TEST_PREFIX }}w-aks" -g "Dapr-E2E-${{ env.TEST_PREFIX }}w" --no-wait || true
         shell: bash
