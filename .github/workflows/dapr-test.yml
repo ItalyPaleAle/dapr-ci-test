@@ -39,7 +39,7 @@ env:
   # Version of kubectl
   KUBECTLVER: "v1.22.6"
   # If not empty, uses cloud resources for testing
-  TEST_CLOUD_ENV: "azure"
+  #TEST_CLOUD_ENV: "azure"
   # Version of Helm
   HELMVER: "v3.7.2"
   # Kubernetes namespace to use
@@ -129,6 +129,8 @@ jobs:
                 dateTag="${DATE_TAG}" \
                 diagLogAnalyticsWorkspaceResourceId="${{ secrets.AZURE_DIAG_LOG_ANALYTICS_WORKSPACE_ID }}" \
                 diagStorageResourceId="${{ secrets.AZURE_DIAG_STORAGE_ID }}" \
+                enableCosmosDB=false \
+                enableServiceBus=false \
               && success=true \
               && break \
               || sleep 120
