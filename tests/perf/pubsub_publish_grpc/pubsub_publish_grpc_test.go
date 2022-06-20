@@ -145,7 +145,7 @@ func TestPubsubPublishGrpcPerformance(t *testing.T) {
 
 	report := perf.NewTestReport(
 		[]perf.TestResult{baselineResult, daprResult},
-		"State Get",
+		"Pubsub Publish Grpc",
 		sidecarUsage,
 		appUsage)
 	report.SetTotalRestartCount(restarts)
@@ -160,5 +160,5 @@ func TestPubsubPublishGrpcPerformance(t *testing.T) {
 	require.Equal(t, 0, restarts)
 	require.True(t, daprResult.ActualQPS > float64(p.QPS)*0.99)
 	require.Greater(t, tp90Latency, 0.0)
-	require.LessOrEqual(t, tp90Latency, 3.0)
+	require.LessOrEqual(t, tp90Latency, 2.0)
 }
