@@ -161,8 +161,8 @@ func TestServiceInvocationGrpcPerformance(t *testing.T) {
 	err = json.Unmarshal(baselineResp, &baselineResult)
 	require.NoError(t, err)
 
-	percentiles := map[int]string{1: "50th", 2: "75th", 3: "90th", 4: "99th"}
-	tp90Latency := 0.0
+	percentiles := []string{"50th", "75th", "90th", "99th"}
+	var tp90Latency float64
 
 	for k, v := range percentiles {
 		daprValue := daprResult.DurationHistogram.Percentiles[k].Value
