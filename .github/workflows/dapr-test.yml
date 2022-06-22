@@ -512,13 +512,15 @@ jobs:
           echo "Test prefix is ${TEST_PREFIX}"
           echo "TEST_PREFIX=${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
-      - name: Stop Linux cluster
+      - name: Delete Linux cluster
         run: |
           # We are not waiting for these commands to complete, and we're ignoring errors
-          az aks stop -n "${{ env.TEST_PREFIX }}l-aks" -g "Dapr-E2E-${{ env.TEST_PREFIX }}l" --no-wait || true
+          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}l"
+          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}l" || true
         shell: bash
-      - name: Stop Windows cluster
+      - name: Delete Windows cluster
         run: |
           # We are not waiting for these commands to complete, and we're ignoring errors
-          az aks stop -n "${{ env.TEST_PREFIX }}w-aks" -g "Dapr-E2E-${{ env.TEST_PREFIX }}w" --no-wait || true
+          echo "Starting removal of resource group Dapr-E2E-${{ env.TEST_PREFIX }}w"
+          az group delete --no-wait --yes --name "Dapr-E2E-${{ env.TEST_PREFIX }}w" || true
         shell: bash
