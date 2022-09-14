@@ -135,23 +135,10 @@ jobs:
 
           # Deploy both Linux and Windows cluster
           # Retry the deployment twice in case of transient failures (such as capacity constraints)
-          success=false
-          for i in 1 2 3; do 
-            az deployment sub create \
-              --name "${{ env.TEST_PREFIX }}" \
-              --location ${REGION1} \
-              --template-file ./tests/test-infra/azure-all.bicep \
-              --parameters \
-                namePrefix="${{ env.TEST_PREFIX }}" \
-                location1=${REGION1} \
-                location2=${REGION2} \
-                dateTag="${DATE_TAG}" \
-                diagLogAnalyticsWorkspaceResourceId="${{ secrets.AZURE_DIAG_LOG_ANALYTICS_WORKSPACE_ID }}" \
-                diagStorageResourceId="${{ secrets.AZURE_DIAG_STORAGE_ID }}" \
-              && success=true \
-              && break \
-              || sleep 120
-          done
+          success=true
+          
+          sleep 10
+
           # Exit with error if failed
           $success || exit 1
         shell: bash
@@ -295,54 +282,6 @@ jobs:
           echo "DAPR_TEST_TAG=${TEST_PREFIX}" >> $GITHUB_ENV
           echo "TEST_RESOURCE_GROUP=Dapr-E2E-${TEST_PREFIX}" >> $GITHUB_ENV
         shell: bash
-      - name: Build Dapr and its Docker images
-        if: env.TEST_PREFIX != ''
-        run: |
-          make build
-          if [ "${{ env.TARGET_OS }}" = "linux" ] && [ "${{ env.TARGET_ARCH }}" != "arm" ]; then
-            # For Linux, we use images based on Mariner
-            DOCKERFILE=Dockerfile-mariner make docker-build
-          else
-            make docker-build
-          fi
-        shell: bash
-      - name: Wait for Azure Container Registry deployment
-        timeout-minutes: 30
-        if: env.TEST_PREFIX != ''
-        run: |
-          elapsed=0
-          until [ $elapsed -ge 1800 ] || az acr show --name ${{ env.TEST_PREFIX }}acr --query "id"
-          do
-              echo "Azure Container Registry not ready yet: sleeping for 20 seconds"
-              sleep 20
-              elapsed=$(expr $elapsed + 20)
-          done
-
-          if [ $elapsed -ge 1800 ]; then
-            echo "Azure Container Registry not ready on time"
-            exit 1
-          fi
-        shell: bash
-      - name: Login to Azure Container Registry
-        if: env.TEST_PREFIX != ''
-        run: |
-          az acr login --name ${{ env.TEST_PREFIX }}acr
-        shell: bash
-      - name: Push Dapr container images
-        if: env.TEST_PREFIX != ''
-        run: |
-          if [ "${{ env.TARGET_OS }}" = "linux" ] && [ "${{ env.TARGET_ARCH }}" != "arm" ]; then
-            # For Linux, we use images based on Mariner
-            DOCKERFILE=Dockerfile-mariner make docker-push
-          else
-            make docker-push
-          fi
-        shell: bash
-      - name: Build and push E2E test apps
-        if: env.TEST_PREFIX != ''
-        run: |
-          make build-push-e2e-app-all
-        shell: bash
       - name: Update PR comment for success
         if: success() && env.PR_NUMBER != ''
         uses: marocchino/sticky-pull-request-comment@v2.2.0
@@ -471,51 +410,8 @@ jobs:
         if: env.TCP_DUMPS == 'true'
         run: |
           sudo tcpdump -nn -i any -w sntp.cap &
-          sleep 1
+          sleep 20
         shell: bash
-      - name: Connect to Kubernetes
-        if: env.TEST_PREFIX != ''
-        run: |
-          az aks get-credentials -n "${{ env.TEST_CLUSTER }}" -g "${{ env.TEST_RESOURCE_GROUP }}"
-          kubectl create namespace ${{ env.DAPR_NAMESPACE }}
-        shell: bash
-      - name: Setup for cloud resources
-        if: env.TEST_PREFIX != '' && env.TEST_CLOUD_ENV != ''
-        run: ./tests/test-infra/setup_${{ env.TEST_CLOUD_ENV }}.sh
-        shell: bash
-      - name: Preparing AKS cluster for test
-        if: env.TEST_PREFIX != ''
-        run: |
-          make setup-helm-init
-          make setup-test-env-redis
-          make setup-test-env-kafka
-          if [ "${{ env.DAPR_TEST_STATE_STORE }}" == "" ] ; then
-            make setup-test-env-mongodb
-          fi
-          kubectl get pods -n ${{ env.DAPR_NAMESPACE }}
-        shell: bash
-      - name: Deploy dapr to AKS cluster
-        if: env.TEST_PREFIX != ''
-        env:
-          ADDITIONAL_HELM_SET: "dapr_operator.logLevel=debug,dapr_operator.watchInterval=0"
-        run: make docker-deploy-k8s
-      - name: Deploy test components
-        if: env.TEST_PREFIX != ''
-        run: make setup-test-components
-      - name: Show dapr configurations
-        if: env.TEST_PREFIX != ''
-        run: kubectl get configurations daprsystem -n ${{ env.DAPR_NAMESPACE }} -o yaml
-      - name: Run E2E tests
-        if: env.TEST_PREFIX != ''
-        run: make test-e2e-all
-      - name: Save control plane K8s resources
-        if: always() && env.TEST_PREFIX != ''
-        run: |
-          make save-dapr-control-plane-k8s-resources || true
-      - name: Save control plane logs
-        if: always() && env.TEST_PREFIX != ''
-        run: |
-          make save-dapr-control-plane-k8s-logs
       - name: Stop tcpdump
         if: always() && env.TCP_DUMPS == 'true'
         run: |
