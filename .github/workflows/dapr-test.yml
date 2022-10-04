@@ -638,8 +638,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - test-e2e
-    # Run only if everything was successful
-    #if: always()
+    if: always()
     steps:
       - name: Login to Azure
         uses: azure/login@v1
